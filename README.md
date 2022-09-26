@@ -15,6 +15,7 @@ instanciez-le avec
 
 ```julia
 ] activate .
+] develop ./DropletSpreadingSim2/
 ] instantiate
 ```
 
