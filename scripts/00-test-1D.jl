@@ -18,7 +18,7 @@ p = Dict(
     :dθₛ => 0,
     :L => 24.0,
     :aspect_ratio => 3,
-    :tmax => 500,
+    :tmax => 2000,
     # :keep_timestep => 0.3,
     :save_timestep => 0.3,
     :hₛ => 0.01,
@@ -57,7 +57,7 @@ reproject_cb = build_reprojection_callback(experiment; thresh=0.1)
 # Vizualisation
 fig = Figure()
 field = unpack_fields(experiment.U₀, experiment)
-if p.two_dim
+if p[:two_dim]
     h_node = Observable(field.h[:, :])
     ax, hm = heatmap(fig[1, 1][1, 1], experiment.grid.x, experiment.grid.y, h_node)
     viz_cb = FunctionCallingCallback() do u, t, integrator
@@ -70,8 +70,9 @@ else
     viz_cb = FunctionCallingCallback() do u, t, integrator
         field = unpack_fields(u, experiment)
         h_node[] = field.h[:, 1]
-end
 
+    end
+end
 display(fig)
 
 # %%
