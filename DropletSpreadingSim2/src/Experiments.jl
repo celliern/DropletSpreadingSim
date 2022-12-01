@@ -156,20 +156,27 @@ function DropletSpreadingExperiment(hi=[],
         error("Domain length < 2h₀")
     end
 
-    if (isnothing(δ) & isnothing(N)) | (~isnothing(δ) & ~isnothing(N))
-        error("You should give either δ or N")
+    if (isnothing(N) & isnothing(hₛ_ratio)) | (~isnothing(N) & ~isnothing(hₛ_ratio))
+        error("You should give either hₛ_ratio or N")
     end
 
-    if (isnothing(hₛ) & isnothing(hₛ_ratio)) | (~isnothing(hₛ) & ~isnothing(hₛ_ratio))
-        error("You should give either hₛ or hₛ_ratio")
+    if (isnothing(N) & isnothing(hₛ)) | (~isnothing(N) & ~isnothing(hₛ))
+        error("You should give either hₛ or N")
     end
 
-    if isnothing(δ)
-        δ = L / (N - 1)
+
+
+    if isnothing(N)
+        δ = 2 * hₛ/hₛ_ratio 
+        N = 1 + L / δ 
     end
 
     if isnothing(hₛ)
         hₛ = hₛ_ratio / 2 * δ
+    end
+
+    if isnothing(δ)
+        δ = L / (N - 1)
     end
 
     if isnothing(mass)
