@@ -70,8 +70,8 @@ parameters = Dict(
     :tmax => 500,
     :save_timestep => 0.3,
     :hₛ => [
-        0.1, 0.2
-        ], # hₛ = hₛ_ratio / 2 * δ, ici hₛ_ratio = 0.1 => hₛ = 0.012
+        0.05, 0.01
+        ], # hₛ = hₛ_ratio / 2 * δ
     :ndrops => 1,
     :hdrop_std => 0.2,
     :mass => 220,
