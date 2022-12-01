@@ -20,7 +20,8 @@ p = Dict(
     :dθₛ => 0,
     :L => 24.0,
     :aspect_ratio => 3,
-    :tmax => 50,
+    :tmax => 2000,
+    # :keep_timestep => 0.3,
     :save_timestep => 0.3,
     :hₛ => 0.01,
     :ndrops => 1,
@@ -72,9 +73,9 @@ else
     viz_cb = FunctionCallingCallback() do u, t, integrator
         field = unpack_fields(u, experiment)
         h_node[] = field.h[:, 1]
+
     end
 end
-
 display(fig)
 
 # %%

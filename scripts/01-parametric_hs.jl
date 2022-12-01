@@ -8,11 +8,11 @@ global_logger(TerminalLogger())
 
 # %%
 function do_simulate(p; filename)
-    @unpack h₀, σ, ρ, μ, τ, θτ, L, N, θₛ, dθₛ, hₛ_ratio, aspect_ratio, tmax, mass, ndrops, hdrop_std, two_dim = p
+    @unpack h₀, σ, ρ, μ, τ, θτ, L, hₛ, θₛ, dθₛ, hₛ_ratio, aspect_ratio, tmax, mass, ndrops, hdrop_std, two_dim = p
     θₐ = deg2rad(θₛ + dθₛ)
     θᵣ = deg2rad(θₛ - dθₛ)
     experiment = DropletSpreadingExperiment(
-            ; h₀, σ, ρ, μ, τ, θτ, L, N, θₐ, θᵣ,
+            ; h₀, σ, ρ, μ, τ, θτ, L, hₛ, θₐ, θᵣ,
             hₛ_ratio, aspect_ratio, mass, ndrops,
             hdrop_std, two_dim, smooth=0.5
         )
@@ -36,7 +36,7 @@ function do_simulate(p; filename)
     if ~isnothing(filename)
         save_cb = build_save_callback(
             filename, prob, experiment;
-            saveat=get(p, :save_timestep, nothing), attrib=Dict()
+            saveat=get(p, :save_timestep, nothing), attrib=p
         )
         push!(callbacks, save_cb)
     end
@@ -56,7 +56,7 @@ end
 
 # %%
 parameters = Dict(
-    :N => 200,
+    :hₛ_ratio => 0.5, # hₛ_ratio= 2 hₛ/δ
     :h₀ => 100e-6,
     :σ => 0.075,
     :ρ => 1000.0,
@@ -67,11 +67,11 @@ parameters = Dict(
     :dθₛ => 0,
     :L => 24.0,
     :aspect_ratio => 3,
-    :tmax => 50,
+    :tmax => 500,
     :save_timestep => 0.3,
-    :hₛ_ratio => [
-        0.1, 0.15, 0.2
-        ], # hₛ = hₛ_ratio / 2 * δ, ici hₛ_ratio = 0.1 => hₛ = 0.012
+    :hₛ => [
+        0.05, 0.01
+        ], # hₛ = hₛ_ratio / 2 * δ
     :ndrops => 1,
     :hdrop_std => 0.2,
     :mass => 220,
@@ -82,6 +82,6 @@ parameters = dict_list(parameters)
 # %%
 for p ∈ parameters
     out_dir = "data/outputs/hs_effect/"
-    filename = savename(p, "nc", accesses=[:hₛ_ratio])
+    filename = savename(p, "nc", accesses=[:hₛ])
     sol, experiment = do_simulate(p; filename=joinpath(out_dir, filename))
 end
