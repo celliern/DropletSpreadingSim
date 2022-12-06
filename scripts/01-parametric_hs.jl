@@ -26,7 +26,7 @@ function do_simulate(p; filename)
         ODEFunction(
             experiment.eveq!, jac_prototype=Jad, colorvec=colors
             ),
-        experiment.U₀, tmax, experiment.p
+        experiment.U₀, tmax, experiment.p, alg =Trapezoid()
         )
 
     # reprojection : may need better thresholding
@@ -56,12 +56,12 @@ end
 
 # %%
 parameters = Dict(
-    :hₛ_ratio => 0.5, # hₛ_ratio= 2 hₛ/δ
+    :hₛ_ratio => 1, # hₛ_ratio= 2 hₛ/δ
     :h₀ => 100e-6,
     :σ => 0.075,
     :ρ => 1000.0,
     :μ => 1e-3,
-    :τ => 16.0,
+    :τ => 8.0,
     :θτ => 0.0,
     :θₛ => 30,
     :dθₛ => 0,
@@ -70,7 +70,7 @@ parameters = Dict(
     :tmax => 500,
     :save_timestep => 0.3,
     :hₛ => [
-        0.05, 0.01
+        0.2, 0.1, 0.05, 0.02, 0.01
         ], # hₛ = hₛ_ratio / 2 * δ
     :ndrops => 1,
     :hdrop_std => 0.2,
