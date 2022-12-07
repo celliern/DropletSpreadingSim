@@ -32,27 +32,30 @@ end
 
 show(io::IO, exp::DropletSpreadingExperiment) = print(io, "DropletSpreadingExperiment($(exp.p), $(exp.grid))")
 
-function unpack_fields_flat(U, exp::DropletSpreadingExperiment)
+function unpack_fields_flat(U, exp::DropletSpreadingExperiment; raw=false)
     @unpack n₁, n₂ = exp.grid
     h, hux, huy, hvx, hvy, hϕxx, hϕxy, hϕyy = eachslice(reshape(U, 8, n₁, n₂); dims=1)
+    if raw
+        return (h=h, ux=hux, uy=huy, vx=hvx, vy=hvy, ϕxx=hϕxx, ϕxy=hϕxy, ϕyy=hϕyy)
+    end
     ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = [hux, huy, hvx, hvy, hϕxx, hϕxy, hϕyy] .|> ((var) -> var ./ h)
     return (h=h, ux=ux, uy=uy, vx=vx, vy=vy, ϕxx=ϕxx, ϕxy=ϕxy, ϕyy=ϕyy)
 end
 
-function unpack_fields_vect(U, exp::DropletSpreadingExperiment)
+function unpack_fields_vect(U, exp::DropletSpreadingExperiment; raw=false)
     @unpack n₁, n₂ = exp.grid
-    @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = unpack_fields_flat(U, exp)
+    @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = unpack_fields_flat(U, exp; raw)
     u = [@SVector([ux[i, j], uy[i, j]]) for i in 1:n₁, j in 1:n₂]
     v = [@SVector([vx[i, j], vy[i, j]]) for i in 1:n₁, j in 1:n₂]
     ϕ = [@SMatrix([ϕxx[i, j] ϕxy[i, j]; ϕxy[i, j] ϕyy[i, j]]) for i in 1:n₁, j in 1:n₂]
     return (h=h, u=u, v=v, ϕ=ϕ)
 end
 
-function unpack_fields(U, exp::DropletSpreadingExperiment, vect=false)
+function unpack_fields(U, exp::DropletSpreadingExperiment; vect=false, raw=false)
     if vect
-        return unpack_fields_vect(U, exp)
+        return unpack_fields_vect(U, exp; raw)
     else
-        return unpack_fields_flat(U, exp)
+        return unpack_fields_flat(U, exp; raw)
     end
 end
 
@@ -163,8 +166,6 @@ function DropletSpreadingExperiment(hi=[],
     if (isnothing(N) & isnothing(hₛ)) | (~isnothing(N) & ~isnothing(hₛ))
         error("You should give either hₛ or N")
     end
-
-
 
     if isnothing(N)
         δ = 2 * hₛ/hₛ_ratio

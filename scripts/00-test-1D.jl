@@ -9,33 +9,36 @@ global_logger(TerminalLogger())
 
 # %%
 p = Dict(
-    :N => 200,
-    :h₀ => 100e-6,
-    :σ => 0.075,
-    :ρ => 1000.0,
-    :μ => 1e-3,
-    :τ => 16.0,
-    :θτ => 0.0,
-    :θₛ => 30,
-    :dθₛ => 0,
-    :L => 24.0,
-    :aspect_ratio => 3,
-    :tmax => 2000,
-    # :keep_timestep => 0.3,
-    :save_timestep => 0.3,
-    :hₛ => 0.01,
+    :tmax => 500,
+    :hₛ_ratio => 1,
+    # :N => 61,
+    :hₛ => 0.2,
     :ndrops => 1,
     :hdrop_std => 0.2,
+    :h₀ => 0.0001,
+    :μ => 0.001,
+    :σ => 0.075,
+    :θₛ => 30,
+    :dθₛ => 0,
+    :save_timestep => 0.3,
+    :θτ => 0.0,
     :mass => 220,
+    :hₛ => 0.01,
+    :aspect_ratio => 3,
+    :ρ => 1000.0,
+    :τ => 8.0,
+    :L => 24,
     :two_dim => false,
 )
 
-@unpack h₀, σ, ρ, μ, τ, θτ, L, N, θₛ, dθₛ, hₛ, aspect_ratio, tmax,
+@unpack h₀, σ, ρ, μ, τ, θτ, L, hₛ_ratio, hₛ, θₛ, dθₛ, hₛ, aspect_ratio, tmax,
 mass, ndrops, hdrop_std, two_dim = p
 θₐ = deg2rad(θₛ + dθₛ)
 θᵣ = deg2rad(θₛ - dθₛ)
-experiment = DropletSpreadingExperiment(; h₀, σ, ρ, μ, τ, θτ, L, N, θₐ, θᵣ,
-    hₛ, aspect_ratio, mass, ndrops, hdrop_std, two_dim, smooth=0.5)
+
+# %%
+experiment = DropletSpreadingExperiment(; h₀, σ, ρ, μ, τ, θτ, L, hₛ_ratio, hₛ, θₐ, θᵣ,
+    aspect_ratio, mass, ndrops, hdrop_std, two_dim, smooth=30.0)
 
 # %%
 # Use SparsityTracing to build the jacobian sparsity pattern, compute (slowly) a
@@ -81,15 +84,20 @@ display(fig)
 # %%
 # Now, every solver should be available with autodiff + sparsity pattern.
 # Better performance may be achieve with preconditionning
+
+using ODEInterfaceDiffEq
+
 @info "launch sim" p
 @time sol = solve(
     prob,
-    Midpoint(),
-    callback=CallbackSet(reproject_cb, viz_cb),
+    SSPRK432(),
+    callback=CallbackSet(viz_cb, reproject_cb),
     progress=true,
     progress_steps=1,
     save_everystep=true,
     saveat=get(p, :keep_timestep, []),
+    reltol=1e-6,
+    dt=1e-10
     # dtmin=get(p, :dtmin, nothing),
 )
 

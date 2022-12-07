@@ -40,8 +40,8 @@ function compute_caF_x!(c, a, F, U, i, j)
     for k in 1:nᵤ
         F[i, j, k] = c[i, j] * U[i, j, k]
     end
-    F[i, j, 2] = U[i, j, 1]^2 * U[i, j, 6]
-    F[i, j, 3] = U[i, j, 1]^2 * U[i, j, 7]
+    F[i, j, 2] += U[i, j, 1]^2 * U[i, j, 6]
+    F[i, j, 3] += U[i, j, 1]^2 * U[i, j, 7]
     return
 end
 
@@ -51,8 +51,8 @@ function compute_caF_y!(c, a, F, U, i, j)
     for k in 1:nᵤ
         F[i, j, k] = c[i, j] * U[i, j, k]
     end
-    F[i, j, 2] = U[i, j, 1]^2 * U[i, j, 7]
-    F[i, j, 3] = U[i, j, 1]^2 * U[i, j, 8]
+    F[i, j, 2] += U[i, j, 1]^2 * U[i, j, 7]
+    F[i, j, 3] += U[i, j, 1]^2 * U[i, j, 8]
     return
 end
 
@@ -63,12 +63,12 @@ function compute_boundaries_flux!(f, U₊, U₋, c₊, c₋, a₊, a₋, F₊, F
     return
 end
 
-function compute_flux_balance!(F, f1, f2, Δx, i, j, k)
-    F[i, j, k] = (f2[i, j, k] - f1[i, j, k]) / Δx
+function compute_flux_balance!(F, f1, f2, δ, i, j, k)
+    F[i, j, k] = (f2[i, j, k] - f1[i, j, k]) / δ
     return
 end
 
-function update_hyp_x!(dUvec, U, p, t; gridinfo, cache_hyp) where {T}
+function update_hyp_x!(dUvec, U, p, t; gridinfo, cache_hyp)
     @unpack Fx = cache_hyp
     @unpack Ue₋, Ue₊, Uw₋, Uw₊ = cache_hyp
     @unpack ce₋, ce₊, cw₋, cw₊ = cache_hyp
