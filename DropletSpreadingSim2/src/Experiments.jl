@@ -1,7 +1,9 @@
 module Experiments
 export DropletSpreadingExperiment, unpack_fields, build_save_callback, build_reprojection_callback, init_model
 
-using UnPack, NCDatasets, DiffEqCallbacks, Printf, StaticArrays, Distributions, LinearAlgebra, DataStructures
+using UnPack, NCDatasets, DiffEqCallbacks, Printf, StaticArrays, DiffEqBase
+using Distributions, LinearAlgebra, DataStructures
+using SparsityTracing, SparseDiffTools, SparseArrays
 using ImageFiltering
 using Base.Filesystem: dirname, mkpath
 import DiffEqBase: ODEProblem
@@ -252,7 +254,14 @@ function DropletSpreadingExperiment(hi=[],
 end
 
 function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; kwargs...)
-    return SplitODEProblem(f.cap!, f.hyp!, f.U₀, Float64.(tspan), f.p, args...; kwargs...)
+    u_ad = SparsityTracing.create_advec(f.U₀);
+    du_ad = similar(u_ad);
+    f.cap!(du_ad, u_ad, f.p, 0.0)
+    Jad = SparsityTracing.jacobian(du_ad, length(du_ad));
+    colors = matrix_colors(Jad)
+    cap_func = ODEFunction(f.cap!, jac_prototype=Jad, colorvec=colors, sparsity=Jad)
+    hyp_func = ODEFunction(f.hyp!)
+    return SplitODEProblem(cap_func, hyp_func, f.U₀, tspan, f.p, args...; kwargs...)
 end
 
 end

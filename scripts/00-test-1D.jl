@@ -1,7 +1,6 @@
 # %%
 using DropletSpreadingSim2
 
-using SparsityTracing, SparseDiffTools, SparseArrays
 using DifferentialEquations, Sundials, Logging, DrWatson
 using WGLMakie
 using TerminalLoggers: TerminalLogger
@@ -39,23 +38,11 @@ experiment = DropletSpreadingExperiment(; h₀, σ, ρ, μ, τ, θτ, L, hₛ_ra
     aspect_ratio, mass, ndrops, hdrop_std, two_dim, smooth=3.0)
 
 # %%
-# Use SparsityTracing to build the jacobian sparsity pattern, compute (slowly) a
-# first jacobian that will be used as a pototype and compute the color matrix.
-u_ad = SparsityTracing.create_advec(experiment.U₀);
-du_ad = similar(u_ad);
-experiment.cap!(du_ad, u_ad, experiment.p, 0.0)
-Jad = SparsityTracing.jacobian(du_ad, length(du_ad));
-colors = matrix_colors(Jad)
-
-# %%
-cap_func = ODEFunction(experiment.cap!, jac_prototype=Jad, colorvec=colors, sparsity=Jad)
-hyp_func = ODEFunction(experiment.hyp!)
-
-prob = SplitODEProblem(cap_func, hyp_func, experiment.U₀, tmax, experiment.p)
+prob = ODEProblem(experiment, (0.0, p[:tmax]))
 
 # %%
 # reprojection : may need better thresholding
-reproject_cb = build_reprojection_callback(experiment; thresh=0.5)
+reproject_cb = build_reprojection_callback(experiment; thresh=0.2)
 
 # Vizualisation
 fig = Figure()

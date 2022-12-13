@@ -1,12 +1,11 @@
 module Model
 export update_cap!, update_hyp!, compute_v!, compute_ϕ!, build_cache, build_cache_cap, build_cache_hyp, MODE, nᵤ
 using SparseArrays, StaticArrays, LinearAlgebra, UnPack, Reexport
+using UnPack
 
 const nᵤ = 8
 const MODE = :full
 
-using SparseArrays, StaticArrays, LinearAlgebra
-using UnPack
 
 include("./Helpers.jl")
 include("./Grids.jl")
