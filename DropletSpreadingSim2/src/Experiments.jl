@@ -25,7 +25,8 @@ struct DropletSpreadingExperiment
     U₀::Vector{Float64}
     p::NamedTuple
     grid::NamedTuple
-    eveq!::Function
+    hyp!::Function
+    cap!::Function
     unpack::Function
     caches::AbstractDict{Type,NamedTuple}
 end
@@ -143,7 +144,8 @@ function init_model(x, y, h, p)
 
     return (
         U₀=U₀,
-        (update!)=(dU, U, p, t) -> full_update!(dU, U, p, t; gridinfo, caches),
+        (hyp!)=(dU, U, p, t) -> update_hyp!(dU, U, p, t; gridinfo, caches),
+        (cap!)=(dU, U, p, t) -> update_cap!(dU, U, p, t; gridinfo, caches),
         unpack=(U; vect) -> unpack_fields(U; gridinfo, vect),
         grid=gridinfo,
         caches=caches,
@@ -151,16 +153,11 @@ function init_model(x, y, h, p)
 end
 
 function DropletSpreadingExperiment(hi=[],
-    ; h₀, σ, ρ, μ, τ, θτ, L, θₐ=0.0, θᵣ=0.0,
-    δ=nothing, N=nothing, hₛ=nothing, hₛ_ratio=nothing,
+    ; h₀, σ, ρ, μ, τ, θτ, L, θₐ=0.0, θᵣ=0.0, N=nothing, hₛ_ratio=nothing, hₛ,
     ndrops=1, hdrop_std=0.2, aspect_ratio=1, two_dim=true, holdup=0.02, mass=nothing, smooth=false
 )
     if L < 2h₀
         error("Domain length < 2h₀")
-    end
-
-    if (isnothing(N) & isnothing(hₛ_ratio)) | (~isnothing(N) & ~isnothing(hₛ_ratio))
-        error("You should give either hₛ_ratio or N")
     end
 
     if (isnothing(N) & isnothing(hₛ)) | (~isnothing(N) & ~isnothing(hₛ))
@@ -168,7 +165,7 @@ function DropletSpreadingExperiment(hi=[],
     end
 
     if isnothing(N)
-        δ = 2 * hₛ/hₛ_ratio
+        δ = 2 * hₛ / hₛ_ratio
         N = ceil(1 + L / δ)
     end
 
@@ -176,9 +173,7 @@ function DropletSpreadingExperiment(hi=[],
         hₛ = hₛ_ratio / 2 * δ
     end
 
-    if isnothing(δ)
-        δ = L / (N - 1)
-    end
+    δ = L / (N - 1)
 
     if isnothing(mass)
         mass = holdup * L^2 * aspect_ratio
@@ -252,12 +247,12 @@ function DropletSpreadingExperiment(hi=[],
     if smooth > 0
         h = imfilter(h, Kernel.gaussian(smooth))
     end
-    U₀, update!, unpack, grid, caches = init_model(x, y, h, p)
-    return DropletSpreadingExperiment(U₀, p, grid, update!, unpack, caches)
+    U₀, hyp!, cap!, unpack, grid, caches = init_model(x, y, h, p)
+    return DropletSpreadingExperiment(U₀, p, grid, hyp!, cap!, unpack, caches)
 end
 
 function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; kwargs...)
-    return ODEProblem(f.eveq!, f.U₀, Float64.(tspan), f.p, args...; kwargs...)
+    return SplitODEProblem(f.cap!, f.hyp!, f.U₀, Float64.(tspan), f.p, args...; kwargs...)
 end
 
 end

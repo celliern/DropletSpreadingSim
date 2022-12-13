@@ -1,5 +1,5 @@
 module Model
-export init_model, compute_v!, compute_ϕ!, full_update!, build_cache, build_cache_cap, build_cache_hyp, MODE, nᵤ
+export update_cap!, update_hyp!, compute_v!, compute_ϕ!, build_cache, build_cache_cap, build_cache_hyp, MODE, nᵤ
 using SparseArrays, StaticArrays, LinearAlgebra, UnPack, Reexport
 
 const nᵤ = 8
@@ -59,7 +59,7 @@ end
 
 function build_cache_hyp(T, n₁, n₂)
     @preallocate U, Fx, Fy = zeros(T, n₁, n₂, nᵤ)
-    @preallocate dUhypx, dUhypy, dUhyp = zeros(T, n₁ * n₂ * nᵤ)
+    @preallocate dUhypx, dUhypy = zeros(T, n₁ * n₂ * nᵤ)
 
     @preallocate Ue₋, Ue₊, Uw₋, Uw₊, Us₋, Us₊, Un₋, Un₊ = zeros(T, n₁, n₂, nᵤ)
     @preallocate ce₋, ce₊, cw₋, cw₊, cs₋, cs₊, cn₋, cn₊ = zeros(T, n₁, n₂)
@@ -67,15 +67,14 @@ function build_cache_hyp(T, n₁, n₂)
     @preallocate Fe₋, Fe₊, Fw₋, Fw₊, Fs₋, Fs₊, Fn₋, Fn₊ = zeros(T, n₁, n₂, nᵤ)
     @preallocate fe, fw, fs, fn = zeros(T, n₁, n₂, nᵤ)
 
-    return @ntuple U Fx Fy dUhyp dUhypx dUhypy Ue₋ Ue₊ Uw₋ Uw₊ Us₋ Us₊ Un₋ Un₊ ce₋ ce₊ cw₋ cw₊ cs₋ cs₊ cn₋ cn₊ ae₋ ae₊ aw₋ aw₊ as₋ as₊ an₋ an₊ Fe₋ Fe₊ Fw₋ Fw₊ Fs₋ Fs₊ Fn₋ Fn₊ fe fw fs fn
+    return @ntuple U Fx Fy dUhypx dUhypy Ue₋ Ue₊ Uw₋ Uw₊ Us₋ Us₊ Un₋ Un₊ ce₋ ce₊ cw₋ cw₊ cs₋ cs₊ cn₋ cn₊ ae₋ ae₊ aw₋ aw₊ as₋ as₊ an₋ an₊ Fe₋ Fe₊ Fw₋ Fw₊ Fs₋ Fs₊ Fn₋ Fn₊ fe fw fs fn
 end
 
 function build_cache_cap(T, n₁, n₂)
-    @preallocate dUcap = zeros(T, n₁ * n₂ * nᵤ)
     @preallocate h, hux, huy, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = zeros(T, n₁, n₂)
     @preallocate fxx, fxy, fyy, gv, fvx, fvy, gx, gy, Pid = zeros(T, n₁, n₂)
 
-    return @ntuple h hux huy ux uy vx vy ϕxx ϕxy ϕyy fxx fxy fyy gv fvx fvy gx gy Pid dUcap
+    return @ntuple h hux huy ux uy vx vy ϕxx ϕxy ϕyy fxx fxy fyy gv fvx fvy gx gy Pid
 end
 
 build_cache(T, n₁, n₂) = (cap=build_cache_cap(T, n₁, n₂), hyp=build_cache_hyp(T, n₁, n₂))
@@ -83,19 +82,5 @@ build_cache(T, n₁, n₂) = (cap=build_cache_cap(T, n₁, n₂), hyp=build_cach
 build_cache_hyp(n₁, n₂) = build_cache_hyp(Float64, n₁, n₂)
 build_cache_cap(n₁, n₂) = build_cache_cap(Float64, n₁, n₂)
 build_cache(n₁, n₂) = build_cache(Float64, n₁, n₂)
-
-
-function full_update!(dUvec::AbstractVector, Uvec::AbstractVector, p, t; gridinfo, caches)
-    typed_caches = caches[eltype(Uvec)]
-    cache_cap = typed_caches.cap
-    cache_hyp = typed_caches.hyp
-    @unpack dUcap = cache_cap
-    @unpack dUhyp = cache_hyp
-    update_cap!(dUcap, Uvec, p, t; gridinfo, cache_cap)
-    update_hyp!(dUhyp, Uvec, p, t; gridinfo, cache_hyp)
-
-    @. dUvec = $oftype(Uvec, dUcap + dUhyp)
-    return
-end
 
 end

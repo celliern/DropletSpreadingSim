@@ -9,9 +9,9 @@ using ..Model: MODE, nᵤ
 @inline minmod(x, y) = 0.5 * (sign(x) + sign(y)) * min(abs(x), abs(y))
 
 @bc U function update_bounds_x!(Uw₋, Uw₊, Ue₋, Ue₊, U, n₁, n₂, Δx, Δy, i, j, k)
-    ∇Ui = minmod((U[i, j, k] - U[i-1, j, k]) / Δx, (U[i+1, j, k] - U[i, j, k]) / Δx)
-    ∇Ue = minmod((U[i+1, j, k] - U[i, j, k]) / Δx, (U[i+2, j, k] - U[i+1, j, k]) / Δx)
-    ∇Uw = minmod((U[i-1, j, k] - U[i-2, j, k]) / Δx, (U[i, j, k] - U[i-1, j, k]) / Δx)
+    ∇Ui = 0. # minmod((U[i, j, k] - U[i-1, j, k]) / Δx, (U[i+1, j, k] - U[i, j, k]) / Δx)
+    ∇Ue = 0. # minmod((U[i+1, j, k] - U[i, j, k]) / Δx, (U[i+2, j, k] - U[i+1, j, k]) / Δx)
+    ∇Uw = 0. # minmod((U[i-1, j, k] - U[i-2, j, k]) / Δx, (U[i, j, k] - U[i-1, j, k]) / Δx)
 
     Ue₋[i, j, k] = U[i, j, k] + Δx / 2 * ∇Ui
     Ue₊[i, j, k] = U[i+1, j, k] - Δx / 2 * ∇Ue
@@ -22,9 +22,9 @@ using ..Model: MODE, nᵤ
 end
 
 @bc U function update_bounds_y!(Us₋, Us₊, Un₋, Un₊, U, n₁, n₂, Δx, Δy, i, j, k)
-    ∇Ui = minmod((U[i, j, k] - U[i, j-1, k]) / Δy, (U[i, j+1, k] - U[i, j, k]) / Δy)
-    ∇Un = minmod((U[i, j+1, k] - U[i, j, k]) / Δy, (U[i, j+2, k] - U[i, j+1, k]) / Δy)
-    ∇Us = minmod((U[i, j-1, k] - U[i, j-2, k]) / Δy, (U[i, j, k] - U[i, j-1, k]) / Δy)
+    ∇Ui = 0. # minmod((U[i, j, k] - U[i, j-1, k]) / Δy, (U[i, j+1, k] - U[i, j, k]) / Δy)
+    ∇Un = 0. # minmod((U[i, j+1, k] - U[i, j, k]) / Δy, (U[i, j+2, k] - U[i, j+1, k]) / Δy)
+    ∇Us = 0. # minmod((U[i, j-1, k] - U[i, j-2, k]) / Δy, (U[i, j, k] - U[i, j-1, k]) / Δy)
 
     Un₋[i, j, k] = U[i, j, k] + Δy / 2 * ∇Ui
     Un₊[i, j, k] = U[i, j+1, k] - Δy / 2 * ∇Un
@@ -126,7 +126,9 @@ function update_hyp_y!(dUvec, U, p, t; gridinfo, cache_hyp)
     return dUvec
 end
 
-function update_hyp!(dUvec, Uvec, p, t; gridinfo, cache_hyp)
+function update_hyp!(dUvec, Uvec, p, t; gridinfo, caches)
+    typed_caches = caches[eltype(Uvec)]
+    cache_hyp = typed_caches.hyp
     @unpack dUhypx, dUhypy, U = cache_hyp
     @unpack Δx, Δy, n₁, n₂ = gridinfo
 
