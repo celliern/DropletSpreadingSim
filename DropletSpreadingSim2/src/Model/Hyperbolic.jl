@@ -2,17 +2,23 @@ module Hyperbolic
 export update_hyp!
 
 using UnPack, FLoops
+using FoldsCUDA, CUDA
 using ..Helpers
 using ..Grids
 using ..Model: MODE, nᵤ
 
 @inline minmod(x, y) = 0.5 * (sign(x) + sign(y)) * min(abs(x), abs(y))
 
-@bc U function update_bounds_x!(Uw₋, Uw₊, Ue₋, Ue₊, U, n₁, n₂, Δx, Δy, i, j, k)
-    ∇Ui = 0. # minmod((U[i, j, k] - U[i-1, j, k]) / Δx, (U[i+1, j, k] - U[i, j, k]) / Δx)
-    ∇Ue = 0. # minmod((U[i+1, j, k] - U[i, j, k]) / Δx, (U[i+2, j, k] - U[i+1, j, k]) / Δx)
-    ∇Uw = 0. # minmod((U[i-1, j, k] - U[i-2, j, k]) / Δx, (U[i, j, k] - U[i-1, j, k]) / Δx)
-
+@bc U function update_bounds_x!(Uw₋, Uw₊, Ue₋, Ue₊, U, n₁, n₂, Δx, Δy, i, j, k; order=1)
+    if order == 2
+        ∇Ui = minmod((U[i, j, k] - U[i-1, j, k]) / Δx, (U[i+1, j, k] - U[i, j, k]) / Δx)
+        ∇Ue = minmod((U[i+1, j, k] - U[i, j, k]) / Δx, (U[i+2, j, k] - U[i+1, j, k]) / Δx)
+        ∇Uw = minmod((U[i-1, j, k] - U[i-2, j, k]) / Δx, (U[i, j, k] - U[i-1, j, k]) / Δx)
+    else
+        ∇Ui = 0.0
+        ∇Ue = 0.0
+        ∇Uw = 0.0
+    end
     Ue₋[i, j, k] = U[i, j, k] + Δx / 2 * ∇Ui
     Ue₊[i, j, k] = U[i+1, j, k] - Δx / 2 * ∇Ue
 
@@ -21,10 +27,16 @@ using ..Model: MODE, nᵤ
     return
 end
 
-@bc U function update_bounds_y!(Us₋, Us₊, Un₋, Un₊, U, n₁, n₂, Δx, Δy, i, j, k)
-    ∇Ui = 0. # minmod((U[i, j, k] - U[i, j-1, k]) / Δy, (U[i, j+1, k] - U[i, j, k]) / Δy)
-    ∇Un = 0. # minmod((U[i, j+1, k] - U[i, j, k]) / Δy, (U[i, j+2, k] - U[i, j+1, k]) / Δy)
-    ∇Us = 0. # minmod((U[i, j-1, k] - U[i, j-2, k]) / Δy, (U[i, j, k] - U[i, j-1, k]) / Δy)
+@bc U function update_bounds_y!(Us₋, Us₊, Un₋, Un₊, U, n₁, n₂, Δx, Δy, i, j, k; order=1)
+    if order == 2
+        ∇Ui = minmod((U[i, j, k] - U[i, j-1, k]) / Δy, (U[i, j+1, k] - U[i, j, k]) / Δy)
+        ∇Un = minmod((U[i, j+1, k] - U[i, j, k]) / Δy, (U[i, j+2, k] - U[i, j+1, k]) / Δy)
+        ∇Us = minmod((U[i, j-1, k] - U[i, j-2, k]) / Δy, (U[i, j, k] - U[i, j-1, k]) / Δy)
+    else
+        ∇Ui = 0.0
+        ∇Un = 0.0
+        ∇Us = 0.0
+    end
 
     Un₋[i, j, k] = U[i, j, k] + Δy / 2 * ∇Ui
     Un₊[i, j, k] = U[i, j+1, k] - Δy / 2 * ∇Un
@@ -58,17 +70,17 @@ end
 
 @inline ps(cₗ, cᵣ, aₗ, aᵣ) = max(abs(cₗ) + aₗ, abs(cᵣ) + aᵣ)
 
-function compute_boundaries_flux!(f, U₊, U₋, c₊, c₋, a₊, a₋, F₊, F₋, i, j, k)
+@inline function compute_boundaries_flux!(f, U₊, U₋, c₊, c₋, a₊, a₋, F₊, F₋, i, j, k)
     f[i, j, k] = 0.5 * ((F₊[i, j, k] + F₋[i, j, k]) - ps(c₊[i, j], c₋[i, j], a₊[i, j], a₋[i, j]) * (U₊[i, j, k] - U₋[i, j, k]))
     return
 end
 
-function compute_flux_balance!(F, f1, f2, δ, i, j, k)
+@inline function compute_flux_balance!(F, f1, f2, δ, i, j, k)
     F[i, j, k] = (f2[i, j, k] - f1[i, j, k]) / δ
     return
 end
 
-function update_hyp_x!(dUvec, U, p, t; gridinfo, cache_hyp)
+function update_hyp_x!(dUvec, U, p, t; gridinfo, cache_hyp, executor=ThreadedEx())
     @unpack Fx = cache_hyp
     @unpack Ue₋, Ue₊, Uw₋, Uw₊ = cache_hyp
     @unpack ce₋, ce₊, cw₋, cw₊ = cache_hyp
@@ -77,11 +89,12 @@ function update_hyp_x!(dUvec, U, p, t; gridinfo, cache_hyp)
     @unpack fe, fw = cache_hyp
     @unpack Δx, Δy, n₁, n₂ = gridinfo
 
-    @floop for I in CartesianIndices((n₁, n₂, nᵤ))
-        update_bounds_x!(Uw₋, Uw₊, Ue₋, Ue₊, U, n₁, n₂, Δx, Δy, Tuple(I)...)
+    @floop executor for I in CartesianIndices((n₁, n₂, nᵤ))
+        i, j, k = Tuple(I)
+        update_bounds_x!(Uw₋, Uw₊, Ue₋, Ue₊, U, n₁, n₂, Δx, Δy, i, j, k)
     end
 
-    @floop for I in CartesianIndices((n₁, n₂))
+    @floop executor for I in CartesianIndices((n₁, n₂))
         i, j = Tuple(I)
         compute_caF_x!(cw₋, aw₋, Fw₋, Uw₋, i, j)
         compute_caF_x!(cw₊, aw₊, Fw₊, Uw₊, i, j)
@@ -97,7 +110,7 @@ function update_hyp_x!(dUvec, U, p, t; gridinfo, cache_hyp)
     return dUvec
 end
 
-function update_hyp_y!(dUvec, U, p, t; gridinfo, cache_hyp)
+function update_hyp_y!(dUvec, U, p, t; gridinfo, cache_hyp, executor=ThreadedEx())
     @unpack Fy = cache_hyp
     @unpack Un₋, Un₊, Us₋, Us₊ = cache_hyp
     @unpack cn₋, cn₊, cs₋, cs₊ = cache_hyp
@@ -106,11 +119,12 @@ function update_hyp_y!(dUvec, U, p, t; gridinfo, cache_hyp)
     @unpack fn, fs = cache_hyp
     @unpack Δx, Δy, n₁, n₂ = gridinfo
 
-    @floop for I in CartesianIndices((n₁, n₂, nᵤ))
-        update_bounds_y!(Us₋, Us₊, Un₋, Un₊, U, n₁, n₂, Δx, Δy, Tuple(I)...)
+    @floop executor for I in CartesianIndices((n₁, n₂, nᵤ))
+        i, j, k = Tuple(I)
+        update_bounds_y!(Us₋, Us₊, Un₋, Un₊, U, n₁, n₂, Δx, Δy, i, j, k)
     end
 
-    @floop for I in CartesianIndices((n₁, n₂))
+    @floop executor for I in CartesianIndices((n₁, n₂))
         i, j = Tuple(I)
         compute_caF_y!(cs₋, as₋, Fs₋, Us₋, i, j)
         compute_caF_y!(cs₊, as₊, Fs₊, Us₊, i, j)
@@ -126,17 +140,20 @@ function update_hyp_y!(dUvec, U, p, t; gridinfo, cache_hyp)
     return dUvec
 end
 
-function update_hyp!(dUvec, Uvec, p, t; gridinfo, caches)
+function update_hyp!(dUvec, Uvec, p, t; gridinfo, caches, executor=:auto)
     typed_caches = caches[eltype(Uvec)]
+    if executor == :auto
+        executor = Uvec isa CuArray ? CUDAEx() : ThreadedEx()
+    end
     cache_hyp = typed_caches.hyp
     @unpack dUhypx, dUhypy, U = cache_hyp
     @unpack Δx, Δy, n₁, n₂ = gridinfo
 
-    matricize_Uvec!(U, Uvec, n₁, n₂)
+    matricize_Uvec!(U, Uvec, n₁, n₂; executor)
 
-    update_hyp_x!(dUhypx, U, p, t; gridinfo, cache_hyp)
-    update_hyp_y!(dUhypy, U, p, t; gridinfo, cache_hyp)
-    dUvec .= oftype(Uvec, dUhypx .+ dUhypy)
+    update_hyp_x!(dUhypx, U, p, t; gridinfo, cache_hyp, executor)
+    update_hyp_y!(dUhypy, U, p, t; gridinfo, cache_hyp, executor)
+    @. dUvec = dUhypx + dUhypy
 end
 
 end

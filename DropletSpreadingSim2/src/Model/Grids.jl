@@ -30,9 +30,10 @@ function vectorize_U!(Uvec, U, n₁, n₂, i, j, k)
     Uvec[gridded_to_flat(k, i, j; nᵤ, n₁, n₂)] = U[i, j, k]
     return
 end
-function vectorize_U!(Uvec, U, n₁, n₂)
-    @floop for I in CartesianIndices(U)
-        vectorize_U!(Uvec, U, n₁, n₂, Tuple(I)...)
+function vectorize_U!(Uvec, U, n₁, n₂; executor=ThreadedEx())
+    @floop executor for I in CartesianIndices((n₁, n₂, nᵤ))
+        i, j, k = Tuple(I)
+        vectorize_U!(Uvec, U, n₁, n₂, i, j, k)
     end
     return Uvec
 end
@@ -41,9 +42,10 @@ function matricize_Uvec!(U, Uvec, n₁, n₂, i, j, k)
     U[i, j, k] = Uvec[gridded_to_flat(k, i, j; nᵤ, n₁, n₂)]
     return
 end
-function matricize_Uvec!(U, Uvec, n₁, n₂)
-    @floop for I in CartesianIndices(U)
-        matricize_Uvec!(U, Uvec, n₁, n₂, Tuple(I)...)
+function matricize_Uvec!(U, Uvec, n₁, n₂; executor=ThreadedEx())
+    @floop executor for I in CartesianIndices((n₁, n₂, nᵤ))
+        i, j, k = Tuple(I)
+        matricize_Uvec!(U, Uvec, n₁, n₂, i, j, k)
     end
     return U
 end
@@ -60,9 +62,10 @@ function pack_Uvec!(Uvec, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, n₁, n₂, i, j)
     return
 end
 
-function pack_Uvec!(Uvec, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, n₁, n₂)
-    @floop for I in CartesianIndices((n₁, n₂))
-        pack_Uvec!(Uvec, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, n₁, n₂, Tuple(I)...)
+function pack_Uvec!(Uvec, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, n₁, n₂; executor=ThreadedEx())
+    @floop executor for I in CartesianIndices((n₁, n₂))
+        i, j = Tuple(I)
+        pack_Uvec!(Uvec, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, n₁, n₂, i, j)
     end
     return Uvec
 end
@@ -79,9 +82,10 @@ function unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂, i, 
     return
 end
 
-function unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂)
-    @floop for I in CartesianIndices((n₁, n₂))
-        unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂, Tuple(I)...)
+function unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂; executor=ThreadedEx())
+    @floop executor for I in CartesianIndices((n₁, n₂))
+        i, j = Tuple(I)
+        unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂, i, j)
     end
     return h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy
 end
