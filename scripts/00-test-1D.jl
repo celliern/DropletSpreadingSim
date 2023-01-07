@@ -9,8 +9,8 @@ global_logger(TerminalLogger())
 # %%
 p = Dict(
     :tmax => 500,
-    :hₛ_ratio => 1,
-    :hₛ => 1e-2,
+    :hₛ_ratio => 1.0,
+    :hₛ => 2e-1,
     :ndrops => 1,
     :hdrop_std => 0.2,
     :h₀ => 0.0001,
@@ -65,24 +65,27 @@ end
 display(fig)
 
 # %%
-# Now, every solver should be available with autodiff + sparsity pattern.
-# Better performance may be achieve with preconditionning
+cfl_limiter = build_cfl_limiter(experiment; safety_factor=0.5)
 
-using ODEInterfaceDiffEq
-
+# %%
 @info "launch sim" p
 @time sol = solve(
     prob,
-    KenCarp3(),
-    callback=CallbackSet(
-        viz_cb,
-        reproject_cb,
-        ),
+    CNAB2(),
     progress=true,
     progress_steps=1,
     save_everystep=true,
     saveat=get(p, :keep_timestep, []),
-    # dtmin=get(p, :dtmin, nothing),
+    callback=CallbackSet(viz_cb, cfl_limiter),
+    adaptive=false,
+    dt=0.01,
 )
 
 # %%
+
+
+
+
+# %%
+# Now, every solver should be available with autodiff + sparsity pattern.
+# Better performance may be achieve with preconditionning
