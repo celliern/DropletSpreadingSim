@@ -1,38 +1,25 @@
 # %%
 using DropletSpreadingSim2
 
-using DifferentialEquations, Sundials, Logging, DrWatson
+using DifferentialEquations, Sundials, Logging, DrWatson, FLoops
 using TerminalLoggers: TerminalLogger
-using SparsityTracing, SparseDiffTools
 global_logger(TerminalLogger())
 
 # %%
 function do_simulate(p; filename)
-    @unpack h₀, σ, ρ, μ, τ, θτ, L, hₛ, θₛ, dθₛ, hₛ_ratio, aspect_ratio, tmax, mass, ndrops, hdrop_std, two_dim = p
+    @unpack h₀, σ, ρ, μ, τ, θτ, L, hₛ, hₛ_ratio, θₛ, dθₛ, hₛ, aspect_ratio, tmax,
+    mass, ndrops, hdrop_std, two_dim = p
     θₐ = deg2rad(θₛ + dθₛ)
     θᵣ = deg2rad(θₛ - dθₛ)
-    experiment = DropletSpreadingExperiment(
-            ; h₀, σ, ρ, μ, τ, θτ, L, hₛ, θₐ, θᵣ,
-            hₛ_ratio, aspect_ratio, mass, ndrops,
-            hdrop_std, two_dim, smooth=0.5
-        )
-    u_ad = SparsityTracing.create_advec(experiment.U₀);
-    du_ad = similar(u_ad);
-    experiment.eveq!(du_ad, u_ad, experiment.p, 0.0)
-    Jad = SparsityTracing.jacobian(du_ad, length(du_ad));
-    colors = matrix_colors(Jad)
 
-    prob = ODEProblem(
-        ODEFunction(
-            experiment.eveq!, jac_prototype=Jad, colorvec=colors
-            ),
-        experiment.U₀, tmax, experiment.p, alg =Trapezoid()
-        )
+    # %%
+    experiment = DropletSpreadingExperiment(; h₀, σ, ρ, μ, τ, θτ, L, hₛ_ratio, hₛ, θₐ, θᵣ,
+        aspect_ratio, mass, ndrops, hdrop_std, two_dim)
 
-    # reprojection : may need better thresholding
-    reproject_cb = build_reprojection_callback(experiment; thresh=0.1)
-
-    callbacks = Any[reproject_cb]
+    # %%
+    prob = ODEProblem(experiment, (0.0, p[:tmax]))
+    cfl_limiter = build_cfl_limiter(experiment; safety_factor=p[:cfl_safety_factor])
+    callbacks = Any[cfl_limiter]
     if ~isnothing(filename)
         save_cb = build_save_callback(
             filename, prob, experiment;
@@ -44,38 +31,42 @@ function do_simulate(p; filename)
     @info "launch sim" p
     @time sol = solve(
         prob,
-        Midpoint(),
+        CNAB2(),
         callback=CallbackSet(callbacks...),
         progress=true,
         progress_steps=1,
         save_everystep=false,
-        saveat=get(p, :keep_timestep, [])
+        saveat=get(p, :keep_timestep, []),
+        dt=0.001,
     )
     return sol, experiment
 end
 
 # %%
 parameters = Dict(
-    :hₛ_ratio => 1, # hₛ_ratio= 2 hₛ/δ
-    :h₀ => 100e-6,
-    :σ => 0.075,
-    :ρ => 1000.0,
-    :μ => 1e-3,
-    :τ => 8.0,
-    :θτ => 0.0,
-    :θₛ => 30,
-    :dθₛ => 0,
-    :L => 24.0,
-    :aspect_ratio => 3,
-    :tmax => 500,
-    :save_timestep => 0.3,
-    :hₛ => [
-        0.2, 0.1, 0.05, 0.02, 0.01
-        ], # hₛ = hₛ_ratio / 2 * δ
-    :ndrops => 1,
+
     :hdrop_std => 0.2,
     :mass => 220,
     :two_dim => false,
+    :tmax => 500,
+    :hₛ_ratio => 1.0,
+    :hₛ => 0.19:0.01:0.20 |> collect,
+    :ndrops => 1,
+    :hdrop_std => 0.2,
+    :h₀ => 0.0001,
+    :μ => 0.001,
+    :σ => 0.075,
+    :θₛ => 30,
+    :dθₛ => 0,
+    :save_timestep => 0.3,
+    :θτ => 0.0,
+    :mass => 220,
+    :aspect_ratio => 2,
+    :ρ => 1000.0,
+    :τ => 8.0,
+    :L => 24,
+    :two_dim => false,
+    :cfl_safety_factor => 0.9,
 )
 parameters = dict_list(parameters)
 
