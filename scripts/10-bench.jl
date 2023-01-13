@@ -8,9 +8,9 @@ global_logger(TerminalLogger())
 
 # %%
 p = Dict(
-    :tmax => 500,
+    :tmax => 50,
     :hₛ_ratio => 1.0,
-    :hₛ => 2e-1,
+    :hₛ => 5e-2,
     :ndrops => 1,
     :hdrop_std => 0.2,
     :h₀ => 0.0001,
@@ -36,47 +36,60 @@ mass, ndrops, hdrop_std, two_dim = p
 # %%
 experiment = DropletSpreadingExperiment(; h₀, σ, ρ, μ, τ, θτ, L, hₛ_ratio, hₛ, θₐ, θᵣ,
     aspect_ratio, mass, ndrops, hdrop_std, two_dim, smooth=3.0)
-
-# %%
 prob = ODEProblem(experiment, (0.0, p[:tmax]))
+# %%
+using BenchmarkTools
+@show Threads.nthreads()
+
+U = experiment.U₀
+dU = similar(U)
 
 # %%
-# reprojection : may need better thresholding
-reproject_cb = build_reprojection_callback(experiment; thresh=0.2)
+@info "Benchmarking"
+@info "non hyperbolic"
+@btime experiment.cap!($dU, $U, $(experiment.p), 0);
+@info "hyperbolic"
+@btime experiment.hyp!($dU, $U, $(experiment.p), 0);
 
-# Vizualisation
-fig = Figure()
-field = unpack_fields(experiment.U₀, experiment)
-if p[:two_dim]
-    h_node = Observable(field.h[:, :])
-    ax, hm = heatmap(fig[1, 1][1, 1], experiment.grid.x, experiment.grid.y, h_node)
-    viz_cb = FunctionCallingCallback() do u, t, integrator
-        field = unpack_fields(u, experiment)
-        h_node[] = field.h[:, :]
-    end
-else
-    h_node = Observable(field.h[:, 1])
-    ax, hm = lines(fig[1, 1][1, 1], experiment.grid.x, h_node)
-    viz_cb = FunctionCallingCallback() do u, t, integrator
-        field = unpack_fields(u, experiment)
-        h_node[] = field.h[:, 1]
-    end
-end
-display(fig)
+@info "F update"
+@btime prob.f(dU, U, experiment.p, 0);
+
+# %%
+@info "launch sim, explicit" p
+@time sol = solve(
+    prob,
+    SSPRK432(),
+    progress=true,
+    progress_steps=1,
+    save_everystep=false,
+)
 
 # %%
 cfl_limiter = build_cfl_limiter(experiment; safety_factor=0.5)
 
-# %%
-@info "launch sim" p
+@info "launch sim, IMEX (implicit)" p
 @time sol = solve(
     prob,
-    CNAB2(),
+    IMEXEuler(),
+    callback=cfl_limiter,
     progress=true,
     progress_steps=1,
-    save_everystep=true,
-    saveat=get(p, :keep_timestep, []),
-    callback=CallbackSet(viz_cb, cfl_limiter),
-    adaptive=false,
-    dt=0.01,
+    save_everystep=false,
+    dt=1e-3,
 )
+
+# %%
+using Sundials
+
+@info "launch sim, sundials (implicit)" p
+@time sol = solve(
+    prob,
+    CVODE_BDF(linear_solver=:GMRES),
+    progress=true,
+    progress_steps=1,
+    save_everystep=false,
+)
+
+# # %%
+# # Now, every solver should be available with autodiff + sparsity pattern.
+# # Better performance may be achieve with preconditionning
