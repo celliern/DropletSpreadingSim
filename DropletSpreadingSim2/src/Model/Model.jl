@@ -42,7 +42,14 @@ end
 function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy, i, j)
     u = @SVector [ux[i, j], uy[i, j]]
     τ = @SVector [τx, τy]
-    ϕ = (u ⊗ u) / 3h[i, j]^2 - 1 / 12h[i, j]^2 * ((u ⊗ u) - h[i, j]^2 * (τ ⊗ τ) / 4)
+#     ϕ = (u ⊗ u) / 3h[i, j]^2 - 1 / 12h[i, j]^2 * ((u ⊗ u) - h[i, j]^2 * (τ ⊗ τ) / 4)
+#     ϕ = 0.0 *( (u ⊗ u) / 3h[i, j]^2 - 1 / 12h[i, j]^2 * ((u ⊗ u) - h[i, j]^2 * (τ ⊗ τ) / 4))
+
+    #ceci est h^2phi
+#     ϕ = ( (u ⊗ u) / 3 - 1 / 12 * ((u ⊗ u) - h[i, j]^2 * (τ ⊗ τ) / 4))
+    ϕ = ( (u ⊗ u) / 4 + 1 / 48 * (  h[i, j]^2 * (τ ⊗ τ) ))
+
+
 
     ϕxx[i, j] = ϕ[1, 1]
     ϕxy[i, j] = ϕ[1, 2]
