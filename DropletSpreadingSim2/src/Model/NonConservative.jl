@@ -97,11 +97,31 @@ function skew_cap_kernel!(
     dhu = -(@∇(gv)) + (@divh∇(fvx, fvy)) + 3 / Re * (τ / 2 - u / h[i, j]) + h[i, j] * (@∇(Pid))
     dhv = @SVector [vx[i, j], vy[i, j]]
     dhv = -g * (@div(ux, uy)) - f * (@divh∇(ux, uy))
+
+
+#          equation d'origine   
+
+#     dhϕ = (
+#         2h[i, j] * (@div(ux, uy)) * ϕ - (@∇(ux, uy)) * h[i, j] * ϕ - h[i, j] * ϕ * (@∇(ux, uy))'
+#         -
+#         β / Re / h[i, j] * (
+#    ϕ - (u ⊗ u) / (3h[i, j]^2) + 1 / (12h[i, j]^2) * ((u ⊗ u) - h[i, j]^2 / 4 * (τ ⊗ τ))
+#         )
+#     )
+
+#          pour dhPhi   avec phi=0
+
+#     dhϕ =  - β / Re / h[i, j] * (
+#             ϕ #ligne modifiee par Mouloud pour test quand phi=0.0
+#         )
+
+#          pour dh^3Phi   avec ϕ=h^2Phi
+
     dhϕ = (
-        2h[i, j] * (@div(ux, uy)) * ϕ - (@∇(ux, uy)) * h[i, j] * ϕ - h[i, j] * ϕ * (@∇(ux, uy))'
+        -h[i, j] * ϕ * (@∇(ux, uy))   - h[i, j] * ϕ * (@∇(ux, uy))'
         -
         β / Re / h[i, j] * (
-            ϕ - (u ⊗ u) / (3h[i, j]^2) + 1 / (12h[i, j]^2) * ((u ⊗ u) - h[i, j]^2 / 4 * (τ ⊗ τ))
+   ϕ - (u ⊗ u) / 3 + 1 / 12 * ((u ⊗ u) - h[i, j]^2 / 4 * (τ ⊗ τ))
         )
     )
 
