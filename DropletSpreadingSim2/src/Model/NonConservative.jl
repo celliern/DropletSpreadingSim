@@ -135,7 +135,7 @@ function skew_cap_kernel!(
 end
 
 function update_cap!(dUvec, Uvec, p, t; gridinfo, caches, executor=:auto)
-    typed_caches = caches[eltype(Uvec)]
+    typed_caches = caches[typeof(Uvec)]
     cache_cap = typed_caches.cap
     @unpack h, hux, huy, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = cache_cap
     @unpack fxx, fxy, fyy, gv, fvx, fvy, gx, gy, Pid = cache_cap

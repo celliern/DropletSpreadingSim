@@ -57,29 +57,27 @@ function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy)
 end
 
 function build_cache_hyp(T, n₁, n₂)
-    @preallocate U, Fx, Fy = zeros(T, n₁, n₂, nᵤ)
-    @preallocate dUhypx, dUhypy = zeros(T, n₁ * n₂ * nᵤ)
+    x = T()
+    @preallocate U, Fx, Fy = similar(x, (n₁, n₂, nᵤ))
+    @preallocate dUhypx, dUhypy = similar(x, (n₁ * n₂ * nᵤ))
 
-    @preallocate Ue₋, Ue₊, Uw₋, Uw₊, Us₋, Us₊, Un₋, Un₊ = zeros(T, n₁, n₂, nᵤ)
-    @preallocate ce₋, ce₊, cw₋, cw₊, cs₋, cs₊, cn₋, cn₊ = zeros(T, n₁, n₂)
-    @preallocate ae₋, ae₊, aw₋, aw₊, as₋, as₊, an₋, an₊ = zeros(T, n₁, n₂)
-    @preallocate Fe₋, Fe₊, Fw₋, Fw₊, Fs₋, Fs₊, Fn₋, Fn₊ = zeros(T, n₁, n₂, nᵤ)
-    @preallocate fe, fw, fs, fn = zeros(T, n₁, n₂, nᵤ)
+    @preallocate Ue₋, Ue₊, Uw₋, Uw₊, Us₋, Us₊, Un₋, Un₊ = similar(x, (n₁, n₂, nᵤ))
+    @preallocate ce₋, ce₊, cw₋, cw₊, cs₋, cs₊, cn₋, cn₊ = similar(x, (n₁, n₂))
+    @preallocate ae₋, ae₊, aw₋, aw₊, as₋, as₊, an₋, an₊ = similar(x, (n₁, n₂))
+    @preallocate Fe₋, Fe₊, Fw₋, Fw₊, Fs₋, Fs₊, Fn₋, Fn₊ = similar(x, (n₁, n₂, nᵤ))
+    @preallocate fe, fw, fs, fn = similar(x, (n₁, n₂, nᵤ))
 
     return @ntuple U Fx Fy dUhypx dUhypy Ue₋ Ue₊ Uw₋ Uw₊ Us₋ Us₊ Un₋ Un₊ ce₋ ce₊ cw₋ cw₊ cs₋ cs₊ cn₋ cn₊ ae₋ ae₊ aw₋ aw₊ as₋ as₊ an₋ an₊ Fe₋ Fe₊ Fw₋ Fw₊ Fs₋ Fs₊ Fn₋ Fn₊ fe fw fs fn
 end
 
 function build_cache_cap(T, n₁, n₂)
-    @preallocate h, hux, huy, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = zeros(T, n₁, n₂)
-    @preallocate fxx, fxy, fyy, gv, fvx, fvy, gx, gy, Pid = zeros(T, n₁, n₂)
+    x = T()
+    @preallocate h, hux, huy, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = similar(x, (n₁, n₂))
+    @preallocate fxx, fxy, fyy, gv, fvx, fvy, gx, gy, Pid = similar(x, (n₁, n₂))
 
     return @ntuple h hux huy ux uy vx vy ϕxx ϕxy ϕyy fxx fxy fyy gv fvx fvy gx gy Pid
 end
 
 build_cache(T, n₁, n₂) = (cap=build_cache_cap(T, n₁, n₂), hyp=build_cache_hyp(T, n₁, n₂))
-
-build_cache_hyp(n₁, n₂) = build_cache_hyp(Float64, n₁, n₂)
-build_cache_cap(n₁, n₂) = build_cache_cap(Float64, n₁, n₂)
-build_cache(n₁, n₂) = build_cache(Float64, n₁, n₂)
 
 end
