@@ -1,9 +1,14 @@
 module Experiments
 export DropletSpreadingExperiment,
-    unpack_fields, build_save_callback, build_reprojection_callback, init_model, build_cfl_limiter
+    unpack_fields,
+    build_save_callback,
+    build_reprojection_callback,
+    init_model,
+    build_cfl_limiter,
+    build_manifold_project_callback
 
 using UnPack, NCDatasets, DiffEqCallbacks, Printf, StaticArrays, DiffEqBase
-using CUDA
+using CUDA, FoldsCUDA
 using Distributions, LinearAlgebra, DataStructures
 using SparsityTracing, SparseDiffTools, SparseArrays
 using FLoops
@@ -39,36 +44,36 @@ end
 show(io::IO, exp::DropletSpreadingExperiment) =
     print(io, "DropletSpreadingExperiment($(exp.p), $(exp.grid))")
 
-function unpack_fields_flat(U, exp::DropletSpreadingExperiment; raw = false)
+function unpack_fields_flat(U, exp::DropletSpreadingExperiment; raw=false)
     @unpack n₁, n₂ = exp.grid
-    h, hux, huy, hvx, hvy, hϕxx, hϕxy, hϕyy = eachslice(reshape(U, 8, n₁, n₂); dims = 1)
+    h, hux, huy, hvx, hvy, hϕxx, hϕxy, hϕyy = eachslice(reshape(U, 8, n₁, n₂); dims=1)
     if raw
         return (
-            h = h,
-            ux = hux,
-            uy = huy,
-            vx = hvx,
-            vy = hvy,
-            ϕxx = hϕxx,
-            ϕxy = hϕxy,
-            ϕyy = hϕyy,
+            h=h,
+            ux=hux,
+            uy=huy,
+            vx=hvx,
+            vy=hvy,
+            ϕxx=hϕxx,
+            ϕxy=hϕxy,
+            ϕyy=hϕyy,
         )
     end
     ux, uy, vx, vy, ϕxx, ϕxy, ϕyy =
         [hux, huy, hvx, hvy, hϕxx, hϕxy, hϕyy] .|> ((var) -> var ./ h)
-    return (h = h, ux = ux, uy = uy, vx = vx, vy = vy, ϕxx = ϕxx, ϕxy = ϕxy, ϕyy = ϕyy)
+    return (h=h, ux=ux, uy=uy, vx=vx, vy=vy, ϕxx=ϕxx, ϕxy=ϕxy, ϕyy=ϕyy)
 end
 
-function unpack_fields_vect(U, exp::DropletSpreadingExperiment; raw = false)
+function unpack_fields_vect(U, exp::DropletSpreadingExperiment; raw=false)
     @unpack n₁, n₂ = exp.grid
     @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = unpack_fields_flat(U, exp; raw)
     u = [@SVector([ux[i, j], uy[i, j]]) for i = 1:n₁, j = 1:n₂]
     v = [@SVector([vx[i, j], vy[i, j]]) for i = 1:n₁, j = 1:n₂]
     ϕ = [@SMatrix([ϕxx[i, j] ϕxy[i, j]; ϕxy[i, j] ϕyy[i, j]]) for i = 1:n₁, j = 1:n₂]
-    return (h = h, u = u, v = v, ϕ = ϕ)
+    return (h=h, u=u, v=v, ϕ=ϕ)
 end
 
-function unpack_fields(U, exp::DropletSpreadingExperiment; vect = false, raw = false)
+function unpack_fields(U, exp::DropletSpreadingExperiment; vect=false, raw=false)
     if vect
         return unpack_fields_vect(U, exp; raw)
     else
@@ -83,15 +88,15 @@ function build_save_callback(
     filename,
     prob,
     exp::DropletSpreadingExperiment;
-    saveat::Number = 0,
-    attrib = Dict{Symbol,Any},
+    saveat::Number=0,
+    attrib=Dict{Symbol,Any}
 )
     @unpack x, y = exp.grid
     saveat =
-        ifelse(saveat == 0, Vector{Float64}(), range(extrema(prob.tspan)..., step = saveat))
+        ifelse(saveat == 0, Vector{Float64}(), range(extrema(prob.tspan)..., step=saveat))
     mkpath(dirname(filename))
     attrib = Dict(zip(String.(keys(attrib)), coerce_attrib.(values(attrib))))
-    Dataset(filename, "c", attrib = attrib) do ds
+    Dataset(filename, "c", attrib=attrib) do ds
         defDim(ds, "t", Inf)
         defDim(ds, "x", size(x, 1))
         defDim(ds, "y", size(y, 1))
@@ -107,8 +112,8 @@ function build_save_callback(
     end
 
     save_cb =
-        FunctionCallingCallback(; funcat = saveat, func_start = false) do u, t, integrator
-            Dataset(filename, "a", attrib = attrib) do ds
+        FunctionCallingCallback(; funcat=saveat, func_start=false) do u, t, integrator
+            Dataset(filename, "a", attrib=attrib) do ds
                 fields = unpack_fields_flat(u, exp)
                 next_tindex = size(ds["t"], 1) + 1
                 ds["t"][next_tindex] = t
@@ -120,16 +125,15 @@ end
 
 function build_reprojection_callback(
     exp::DropletSpreadingExperiment;
-    thresh = nothing,
-    kwargs...,
+    thresh=nothing,
+    kwargs...
 )
-    @unpack n₁, n₂, Δx, Δy = exp.grid
-    @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = build_cache_cap(n₁, n₂)
-    vx_new = copy(vx)
-    vy_new = copy(vy)
-    @unpack κ = exp.p
     reproj_cb = FunctionCallingCallback(; kwargs...) do Uvec, _, integrator
-
+        @unpack n₁, n₂, Δx, Δy = exp.grid
+        @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = exp.caches[typeof(Uvec)].cap
+        vx_new = copy(vx)
+        vy_new = copy(vy)
+        @unpack κ = exp.p
         unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂)
         compute_v!(vx_new, vy_new, h, κ, Δx, Δy, n₁, n₂)
         if isnothing(thresh) || (
@@ -144,13 +148,38 @@ function build_reprojection_callback(
     return reproj_cb
 end
 
+function build_manifold_project_callback(
+    exp::DropletSpreadingExperiment;
+    kwargs...
+)
+    function g(resid, u, p, t)
+        @unpack n₁, n₂, Δx, Δy = exp.grid
+        @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = exp.caches[typeof(u)].cap
+        resid_0 = zeros(size(h)...)
+        vx_new = copy(vx)
+        vy_new = copy(vy)
+        @unpack κ = exp.p
+        unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, u, n₁, n₂)
+        compute_v!(vx_new, vy_new, h, κ, Δx, Δy, n₁, n₂)
+        res_vx = vx .- vx_new
+        res_vy = vy .- vy_new
+        pack_Uvec!(
+            resid, resid_0, resid_0, resid_0, res_vx, res_vy, resid_0, resid_0, resid_0, n₁, n₂
+            )
+        return
+    end
+    return ManifoldProjection(g)
+end
+
 function build_cfl_limiter(exp::DropletSpreadingExperiment; kwargs...)
     @unpack Δx, Δy, n₁, n₂ = exp.grid
     function dtFE(Uvec, p, t)
-        @unpack U = exp.caches[eltype(Uvec)].hyp
-        matricize_Uvec!(U, Uvec, n₁, n₂)
+        Uvec_raw = Uvec |> collect
+        @unpack U = exp.caches[typeof(Uvec_raw)].hyp
+        matricize_Uvec!(U, Uvec_raw, n₁, n₂)
         dtmax = 0.0
-        @floop for i = 1:n₁, j = 1:n₂
+        @floop ThreadedEx() for I in CartesianIndices((n₁, n₂))
+            i, j = Tuple(I)
             visc_vel = U[i, j, 2] / U[i, j, 1] + √(3U[i, j, 1]) * √(max(U[i, j, 6], 0))
             dt = Δx / visc_vel
             @reduce() do (dtmax = 0; dt)
@@ -172,10 +201,10 @@ function init_model(x, y, h, p)
     n₁, n₂ = length.([x, y])
     Δx = n₁ > 1 ? step(x) : 1.0
     Δy = n₂ > 1 ? step(y) : 1.0
-    caches = DefaultDict{Type,NamedTuple}(passkey = true) do T
+    caches = DefaultDict{Type,NamedTuple}(passkey=true) do T
         return build_cache(T, n₁, n₂)
     end
-    gridinfo = (x = x, y = y, Δx = Δx, Δy = Δy, n₁ = n₁, n₂ = n₂)
+    gridinfo = (x=x, y=y, Δx=Δx, Δy=Δy, n₁=n₁, n₂=n₂)
 
     @unpack κ, τx, τy = p
 
@@ -204,7 +233,7 @@ function init_model(x, y, h, p)
 end
 
 function DropletSpreadingExperiment(
-    hi = [],
+    hi=[],
     ;
     h₀,
     σ,
@@ -213,18 +242,18 @@ function DropletSpreadingExperiment(
     τ,
     θτ,
     L,
-    θₐ = 0.0,
-    θᵣ = 0.0,
-    N = nothing,
-    hₛ_ratio = nothing,
+    θₐ=0.0,
+    θᵣ=0.0,
+    N=nothing,
+    hₛ_ratio=nothing,
     hₛ,
-    ndrops = 1,
-    hdrop_std = 0.2,
-    aspect_ratio = 1,
-    two_dim = true,
-    holdup = 0.02,
-    mass = nothing,
-    smooth = false,
+    ndrops=1,
+    hdrop_std=0.2,
+    aspect_ratio=1,
+    two_dim=true,
+    holdup=0.02,
+    mass=nothing,
+    smooth=false
 )
     if L < 2h₀
         error("Domain length < 2h₀")
@@ -260,10 +289,10 @@ function DropletSpreadingExperiment(
     τx = cos(θτ)
     τy = sin(θτ)
     # attention ! A cause de la peridocité, il ne faut pas le dernier point du domaine
-    x = range(-L / 2, L * (aspect_ratio - 1 / 2) - δ, step = δ)
+    x = range(-L / 2, L * (aspect_ratio - 1 / 2) - δ, step=δ)
 
     if two_dim
-        y = range(-L / 2, L / 2 - δ, step = δ)
+        y = range(-L / 2, L / 2 - δ, step=δ)
     else
         y = [0.0]
     end
@@ -271,7 +300,7 @@ function DropletSpreadingExperiment(
     n₁, n₂ = length.([x, y])
     Δx = Δy = δ
 
-    p = (Re = Re, κ = κ, β = β, τx = τx, τy = τy, hₛ = hₛ, θₐ = θₐ, θᵣ = θᵣ)
+    p = (Re=Re, κ=κ, β=β, τx=τx, τy=τy, hₛ=hₛ, θₐ=θₐ, θᵣ=θᵣ)
 
     if isempty(hi)
         hi = hₛ
@@ -314,7 +343,7 @@ function DropletSpreadingExperiment(
     return DropletSpreadingExperiment(U₀, p, grid, hyp!, cap!, unpack, caches)
 end
 
-function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; on = :cpu, kwargs...)
+function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; on=:cpu, kwargs...)
     U₀ = f.U₀
     p = f.p
     u_ad = SparsityTracing.create_advec(U₀)
@@ -328,7 +357,7 @@ function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; on = :cpu, kw
         Jad = cu(Jad)
         colors = cu(colors)
     end
-    cap_func = ODEFunction(f.cap!, jac_prototype = Jad, colorvec = colors, sparsity = Jad)
+    cap_func = ODEFunction(f.cap!, jac_prototype=Jad, colorvec=colors, sparsity=Jad)
     hyp_func = ODEFunction(f.hyp!)
     return SplitODEProblem(cap_func, hyp_func, U₀, tspan, p, args...; kwargs...)
 end

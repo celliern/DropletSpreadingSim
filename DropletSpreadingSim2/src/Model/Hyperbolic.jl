@@ -141,7 +141,7 @@ function update_hyp_y!(dUvec, U, p, t; gridinfo, cache_hyp, executor=ThreadedEx(
 end
 
 function update_hyp!(dUvec, Uvec, p, t; gridinfo, caches, executor=:auto)
-    typed_caches = caches[eltype(Uvec)]
+    typed_caches = caches[typeof(Uvec)]
     if executor == :auto
         executor = Uvec isa CuArray ? CUDAEx() : ThreadedEx()
     end
