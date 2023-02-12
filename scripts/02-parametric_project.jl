@@ -3,7 +3,7 @@ using DropletSpreadingSim2
 
 using DifferentialEquations, Sundials, Logging, DrWatson, FLoops
 using TerminalLoggers: TerminalLogger
-global_logger(TerminalLogger())
+global_logger(TerminalLogger(stderr))
 
 # %%
 function do_simulate(p; filename)
@@ -47,13 +47,12 @@ end
 
 # %%
 parameters = Dict(
-
     :hdrop_std => 0.2,
     :mass => 220,
     :two_dim => false,
     :tmax => 1000,
     :hₛ_ratio => 1.0,
-    :hₛ => [2e-2, 2.5e-2, 3e-2, 5e-2],
+    :hₛ => [2e-2],#], 2.5e-2, 3e-2, 5e-2],
     :ndrops => 1,
     :hdrop_std => 0.2,
     :h₀ => 0.0001,
@@ -70,13 +69,13 @@ parameters = Dict(
     :L => 24,
     :two_dim => false,
     :cfl_safety_factor => 0.9,
-    :reproject => [true, false],
+    :reproject => [true],
 )
 parameters = dict_list(parameters)
 
 # %%
 for p ∈ parameters
-    out_dir = "data/outputs/reprojection/"
+    out_dir = "data/outputs/reproj_test/"
     filename = savename(p, "nc", accesses=[:reproject, :hₛ])
     sol, experiment = do_simulate(p; filename=joinpath(out_dir, filename))
 end
