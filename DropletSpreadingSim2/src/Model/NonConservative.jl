@@ -31,11 +31,16 @@ function compute_skew_cap_coeffs!(
         fyy[i, j] = √κ * √h[i, j] * 1 / √(1 + h[i, j] * 1 / 4κ * (vx[i, j]^2 + vy[i, j]^2)) * (1 - 1 / (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2)) * h[i, j] / 4κ * (vy[i, j]^2))
         gx[i, j] = h[i, j] * vx[i, j] / 2 * (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2))^(-1)
         gy[i, j] = h[i, j] * vy[i, j] / 2 * (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2))^(-1)
-    else
+    elseif MODE == :simple
         fxx[i, j] = fyy[i, j] = √κ * √h[i, j]
         fxy[i, j] = 0.0
         gx[i, j] = h[i, j] * vx[i, j] / 2
         gy[i, j] = h[i, j] * vy[i, j] / 2
+    else
+        fxx[i, j] = fyy[i, j] = 0.0
+        fxy[i, j] = 0.0
+        gx[i, j] = 0.0
+        gy[i, j] = 0.0
     end
     v = @SVector [vx[i, j], vy[i, j]]
     g = @SVector [gx[i, j], gy[i, j]]

@@ -113,6 +113,7 @@ function build_save_callback(
 
     save_cb =
         FunctionCallingCallback(; funcat=saveat, func_start=false) do u, t, integrator
+            u = collect(u) # ensure data is on the host
             Dataset(filename, "a", attrib=attrib) do ds
                 fields = unpack_fields_flat(u, exp)
                 next_tindex = size(ds["t"], 1) + 1
@@ -126,50 +127,31 @@ end
 function build_reprojection_callback(
     exp::DropletSpreadingExperiment;
     thresh=nothing,
+    executor=:auto,
     kwargs...
 )
     reproj_cb = FunctionCallingCallback(; kwargs...) do Uvec, _, integrator
+        if executor == :auto
+            executor = Uvec isa CuArray ? CUDAEx() : ThreadedEx()
+        end
         @unpack n₁, n₂, Δx, Δy = exp.grid
         @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = exp.caches[typeof(Uvec)].cap
         vx_new = copy(vx)
         vy_new = copy(vy)
         @unpack κ = exp.p
-        unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂)
-        compute_v!(vx_new, vy_new, h, κ, Δx, Δy, n₁, n₂)
+        unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂; executor)
+        compute_v!(vx_new, vy_new, h, κ, Δx, Δy, n₁, n₂; executor)
         if isnothing(thresh) || (
             (norm(vx - vx_new) / norm(vx) > thresh) ||
             (norm(vy - vy_new) / norm(vy) > thresh)
         )
-            @info "err more than thresh, reprojection..."
-            pack_Uvec!(integrator.u, h, ux, uy, vx_new, vy_new, ϕxx, ϕxy, ϕyy, n₁, n₂)
+            pack_Uvec!(integrator.u, h, ux, uy, vx_new, vy_new, ϕxx, ϕxy, ϕyy, n₁, n₂; executor)
             return
         end
     end
     return reproj_cb
 end
 
-function build_manifold_project_callback(
-    exp::DropletSpreadingExperiment;
-    kwargs...
-)
-    function g(resid, u, p, t)
-        @unpack n₁, n₂, Δx, Δy = exp.grid
-        @unpack h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = exp.caches[typeof(u)].cap
-        resid_0 = zeros(size(h)...)
-        vx_new = copy(vx)
-        vy_new = copy(vy)
-        @unpack κ = exp.p
-        unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, u, n₁, n₂)
-        compute_v!(vx_new, vy_new, h, κ, Δx, Δy, n₁, n₂)
-        res_vx = vx .- vx_new
-        res_vy = vy .- vy_new
-        pack_Uvec!(
-            resid, resid_0, resid_0, resid_0, res_vx, res_vy, resid_0, resid_0, resid_0, n₁, n₂
-            )
-        return
-    end
-    return ManifoldProjection(g)
-end
 
 function build_cfl_limiter(exp::DropletSpreadingExperiment; kwargs...)
     @unpack Δx, Δy, n₁, n₂ = exp.grid
@@ -343,21 +325,29 @@ function DropletSpreadingExperiment(
     return DropletSpreadingExperiment(U₀, p, grid, hyp!, cap!, unpack, caches)
 end
 
-function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; on=:cpu, kwargs...)
+function ODEProblem(f::DropletSpreadingExperiment, tspan, args...; on=:cpu, compute_sparsity=false, kwargs...)
     U₀ = f.U₀
     p = f.p
-    u_ad = SparsityTracing.create_advec(U₀)
-    du_ad = similar(u_ad)
-    f.cap!(du_ad, u_ad, p, 0.0)
-    Jad = SparsityTracing.jacobian(du_ad, length(du_ad))
-    colors = matrix_colors(Jad)
+    if compute_sparsity
+        u_ad = SparsityTracing.create_advec(U₀)
+        du_ad = similar(u_ad)
+        f.cap!(du_ad, u_ad, p, 0.0)
+        Jad = SparsityTracing.jacobian(du_ad, length(du_ad))
+        colors = matrix_colors(Jad)
+    end
     if on == :gpu
         U₀ = cu(f.U₀)
         p = NamedTuple((key => Float32(value) for (key, value) in pairs(f.p)))
-        Jad = cu(Jad)
-        colors = cu(colors)
+        if compute_sparsity
+            Jad = cu(Jad)
+            colors = cu(colors)
+        end
     end
-    cap_func = ODEFunction(f.cap!, jac_prototype=Jad, colorvec=colors, sparsity=Jad)
+    if compute_sparsity
+        cap_func = ODEFunction(f.cap!, jac_prototype=Jad, colorvec=colors, sparsity=Jad)
+    else
+        cap_func = ODEFunction(f.cap!)
+    end
     hyp_func = ODEFunction(f.hyp!)
     return SplitODEProblem(cap_func, hyp_func, U₀, tspan, p, args...; kwargs...)
 end

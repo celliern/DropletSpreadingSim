@@ -1,7 +1,7 @@
 # %%
 using DropletSpreadingSim2
 
-using DifferentialEquations, Sundials, Logging, DrWatson, FLoops
+using DifferentialEquations, Sundials, Logging, DrWatson
 using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger(stderr))
 
@@ -18,8 +18,8 @@ function do_simulate(p; filename)
 
     # %%
     prob = ODEProblem(experiment, (0.0, p[:tmax]))
-    cfl_limiter = build_cfl_limiter(experiment; safety_factor=p[:cfl_safety_factor])
-    callbacks = Any[cfl_limiter]
+    # cfl_limiter = build_cfl_limiter(experiment; safety_factor=p[:cfl_safety_factor])
+    callbacks = Any[]
     if ~isnothing(filename)
         save_cb = build_save_callback(
             filename, prob, experiment;
@@ -28,20 +28,22 @@ function do_simulate(p; filename)
         push!(callbacks, save_cb)
     end
     if reproject
-        reproject_cb = build_reprojection_callback(experiment; thresh=1e-6)
+        reproject_cb = build_reprojection_callback(experiment; thresh=1e-3)
         push!(callbacks, reproject_cb)
     end
 
     @info "launch sim" p
     @time sol = solve(
         prob,
-        SSPRK432(),
+        SSPRK432();
         callback=CallbackSet(callbacks...),
         progress=true,
         progress_steps=1,
         save_everystep=false,
         saveat=get(p, :keep_timestep, []),
+        dt=1e-3,
     )
+
     return sol, experiment
 end
 
@@ -50,9 +52,9 @@ parameters = Dict(
     :hdrop_std => 0.2,
     :mass => 220,
     :two_dim => false,
-    :tmax => 1000,
+    :tmax => 400,
     :hₛ_ratio => 1.0,
-    :hₛ => [2e-2],#], 2.5e-2, 3e-2, 5e-2],
+    :hₛ => [1e-2, 2e-2, 2.5e-2, 3e-2, 5e-2, 6e-2, 7e-2, 8e-2, 9e-2, 1e-1, 1.5e-1, 2e-1],
     :ndrops => 1,
     :hdrop_std => 0.2,
     :h₀ => 0.0001,
@@ -69,13 +71,25 @@ parameters = Dict(
     :L => 24,
     :two_dim => false,
     :cfl_safety_factor => 0.9,
-    :reproject => [true],
+    :reproject => true,
 )
 parameters = dict_list(parameters)
 
 # %%
 for p ∈ parameters
-    out_dir = "data/outputs/reproj_test/"
-    filename = savename(p, "nc", accesses=[:reproject, :hₛ])
+    out_dir = "data/outputs/hs_effect_wreproj"
+    filename = savename(p, "nc", accesses=[:hₛ])
+    if ~isnothing(filename) && isfile(joinpath(out_dir, "$(basename(filename)).done"))
+        @info "skipping" filename
+        continue
+    end
+    # remove filename if it exists
+    if ~isnothing(filename) && isfile(filename)
+        rm(filename)
+    end
+
     sol, experiment = do_simulate(p; filename=joinpath(out_dir, filename))
+    if ~isnothing(filename)
+        touch(joinpath(out_dir, "$(basename(filename)).done"))
+    end
 end

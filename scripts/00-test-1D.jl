@@ -40,7 +40,7 @@ experiment = DropletSpreadingExperiment(;
 )
 
 # %%
-prob = ODEProblem(experiment, (0.0, p[:tmax]))
+prob = ODEProblem(experiment, (0.0, p[:tmax]), on=:gpu)
 
 # %%
 # Vizualisation

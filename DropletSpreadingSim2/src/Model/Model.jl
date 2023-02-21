@@ -1,10 +1,12 @@
 module Model
 export update_cap!, update_hyp!, compute_v!, compute_ϕ!, build_cache, build_cache_cap, build_cache_hyp, MODE, nᵤ
-using SparseArrays, StaticArrays, LinearAlgebra, UnPack, Reexport
+using SparseArrays, StaticArrays, LinearAlgebra, UnPack, Reexport, FLoops
 using UnPack
 
 const nᵤ = 8
 const MODE = :full
+# const MODE = :simple
+# const MODE = nothing
 
 
 include("./Helpers.jl")
@@ -25,16 +27,20 @@ include("./NonConservative.jl")
         vy[i, j] = √κ * √(2.0 / (1.0 + √(1.0 + (@dx(h))^2 + (@dy(h))^2))) * (@dy(h)) / √max(h[i, j], 0.0)
         return
     end
-else
+elseif MODE == :simple
     function compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂, i, j)
         vx[i, j] = @. √κ * (@dx(h)) / √max(h[i, j], 0.0)
         vy[i, j] = @. √κ * (@dy(h)) / √max(h[i, j], 0.0)
         return
     end
+else
+    function compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂, i, j)
+        return
+    end
 end
 
-function compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂)
-    for I in CartesianIndices((n₁, n₂))
+function compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂; executor=ThreadedEx())
+    @floop executor for I in CartesianIndices((n₁, n₂))
         compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂, Tuple(I)...)
     end
 end
@@ -50,8 +56,8 @@ function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy, i, j)
     return
 end
 
-function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy)
-    for I in CartesianIndices(h)
+function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy; executor=ThreadedEx())
+    @floop executor for I in CartesianIndices(h)
         compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy, Tuple(I)...)
     end
 end
