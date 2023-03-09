@@ -1,0 +1,21 @@
+
+N: 60
+h₀: 100e-6
+σ: 0.075
+ρ: 1000.0
+μ: 1e-3
+τ: 8.0
+θτ: 0.0
+θₛ: 30
+dθₛ:
+  from: 0
+  to: 0
+L: 24.0
+aspect_ratio: 3
+tmax: 400
+keep_timestep: 0.3
+save_timestep: 0.3
+hₛ_ratio: 1
+ndrops: 1
+hdrop_std: 0.2
+mass: 22

@@ -3,10 +3,11 @@ using DropletSpreadingSim2
 
 using DifferentialEquations, Sundials, Logging, DrWatson
 using TerminalLoggers: TerminalLogger
+using GLMakie
 global_logger(TerminalLogger(stderr))
 
 # %%
-function do_simulate(p; filename)
+function do_simulate(p; filename, viz=false)
     @unpack h₀, σ, ρ, μ, τ, θτ, L, hₛ, hₛ_ratio, θₛ, dθₛ, hₛ, aspect_ratio, tmax,
     mass, ndrops, hdrop_std, two_dim, reproject = p
     θₐ = deg2rad(θₛ + dθₛ)
@@ -17,7 +18,7 @@ function do_simulate(p; filename)
         aspect_ratio, mass, ndrops, hdrop_std, two_dim)
 
     # %%
-    prob = ODEProblem(experiment, (0.0, p[:tmax]))
+    prob = ODEProblem(experiment, (0.0, p[:tmax]), on=:gpu)
     # cfl_limiter = build_cfl_limiter(experiment; safety_factor=p[:cfl_safety_factor])
     callbacks = Any[]
     if ~isnothing(filename)
@@ -31,6 +32,12 @@ function do_simulate(p; filename)
         reproject_cb = build_reprojection_callback(experiment; thresh=1e-3)
         push!(callbacks, reproject_cb)
     end
+    if viz
+        fig, viz_cb = build_viz_cb(prob, experiment)
+        push!(callbacks, viz_cb)
+        display(fig)
+    end
+
 
     @info "launch sim" p
     @time sol = solve(
@@ -41,7 +48,6 @@ function do_simulate(p; filename)
         progress_steps=1,
         save_everystep=false,
         saveat=get(p, :keep_timestep, []),
-        dt=1e-3,
     )
 
     return sol, experiment
@@ -49,10 +55,12 @@ end
 
 # %%
 parameters = Dict(
+    :hdrop_std => 0.2,
     :mass => 220,
+    :two_dim => false,
     :tmax => 400,
-    :hₛ_ratio => 1.0,
-    :hₛ => [1e-2, 2e-2, 2.5e-2, 3e-2, 5e-2, 6e-2, 7e-2, 8e-2, 9e-2, 1e-1, 1.5e-1, 2e-1],
+    :hₛ_ratio => [0.25, 0.5, 1.0, 2.0],
+    :hₛ => 5e-2,
     :ndrops => 1,
     :hdrop_std => 0.2,
     :h₀ => 0.0001,
@@ -60,23 +68,22 @@ parameters = Dict(
     :σ => 0.075,
     :θₛ => 30,
     :dθₛ => 0,
-    :save_timestep => 0.3,
+    :save_timestep => 0.5,
     :θτ => 0.0,
     :mass => 220,
-    :aspect_ratio => 2,
+    :aspect_ratio => 3,
     :ρ => 1000.0,
     :τ => 8.0,
     :L => 24,
     :two_dim => false,
-    :cfl_safety_factor => 0.9,
     :reproject => true,
 )
 parameters = dict_list(parameters)
 
 # %%
 for p ∈ parameters
-    out_dir = "data/outputs/hs_effect_wreproj"
-    filename = savename(p, "nc", accesses=[:hₛ])
+    out_dir = "data/outputs/converge_N_1D"
+    filename = savename(p, "nc", accesses=[:hₛ_ratio])
     if ~isnothing(filename) && isfile(joinpath(out_dir, "$(basename(filename)).done"))
         @info "skipping" filename
         continue
@@ -86,7 +93,7 @@ for p ∈ parameters
         rm(filename)
     end
 
-    sol, experiment = do_simulate(p; filename=joinpath(out_dir, filename))
+    sol, experiment = do_simulate(p; filename=joinpath(out_dir, filename), viz=true)
     if ~isnothing(filename)
         touch(joinpath(out_dir, "$(basename(filename)).done"))
     end

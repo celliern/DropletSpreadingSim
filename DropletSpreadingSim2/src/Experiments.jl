@@ -5,7 +5,7 @@ export DropletSpreadingExperiment,
     build_reprojection_callback,
     init_model,
     build_cfl_limiter,
-    build_manifold_project_callback
+    build_viz_cb
 
 using UnPack, NCDatasets, DiffEqCallbacks, Printf, StaticArrays, DiffEqBase
 using CUDA, FoldsCUDA
@@ -14,6 +14,7 @@ using SparsityTracing, SparseDiffTools, SparseArrays
 using FLoops
 using ImageFiltering
 using Base.Filesystem: dirname, mkpath
+using Makie
 import DiffEqBase: ODEProblem
 import Base: show
 
@@ -92,8 +93,11 @@ function build_save_callback(
     attrib=Dict{Symbol,Any}
 )
     @unpack x, y = exp.grid
-    saveat =
-        ifelse(saveat == 0, Vector{Float64}(), range(extrema(prob.tspan)..., step=saveat))
+    if saveat != 0
+        saveat = range(extrema(prob.tspan)..., step=saveat)
+    else
+        saveat = Vector{Float64}()
+    end
     mkpath(dirname(filename))
     attrib = Dict(zip(String.(keys(attrib)), coerce_attrib.(values(attrib))))
     Dataset(filename, "c", attrib=attrib) do ds
@@ -173,6 +177,34 @@ function build_cfl_limiter(exp::DropletSpreadingExperiment; kwargs...)
         return dtmax
     end
     return StepsizeLimiter(dtFE; kwargs...)
+end
+
+function build_viz_cb(prob, exp::DropletSpreadingExperiment; plotat::Number=0)
+    fig = Figure()
+    field = unpack_fields(exp.U₀, exp)
+    if plotat != 0
+        plotat = range(extrema(prob.tspan)..., step=plotat)
+    else
+        plotat = Vector{Float64}()
+    end
+    if length(exp.grid.y) > 1
+        h_node = Observable(field.h[:, :])
+        ax, hm = heatmap(fig[1, 1][1, 1], exp.grid.x, exp.grid.y, h_node)
+        viz_cb = FunctionCallingCallback(;funcat=plotat) do u, t, integrator
+            u = collect(u) # put data on CPU
+            field = unpack_fields(u, exp)
+            h_node[] = field.h[:, :]
+        end
+    else
+        h_node = Observable(field.h[:, 1])
+        ax, hm = lines(fig[1, 1][1, 1], exp.grid.x, h_node)
+        viz_cb = FunctionCallingCallback(;funcat=plotat) do u, t, integrator
+            u = collect(u) # put data on CPU
+            field = unpack_fields(u, exp)
+            h_node[] = field.h[:, 1]
+        end
+    end
+    return fig, viz_cb
 end
 
 function init_model(x, y, h, p)
