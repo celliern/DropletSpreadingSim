@@ -89,13 +89,13 @@ function build_save_callback(
     filename,
     prob,
     exp::DropletSpreadingExperiment;
-    saveat::Number=0,
+    saveat::Union{Number, AbstractVector{Number}, StepRangeLen}=0,
     attrib=Dict{Symbol,Any}
 )
     @unpack x, y = exp.grid
-    if saveat != 0
+    if saveat isa Number && saveat > 0
         saveat = range(extrema(prob.tspan)..., step=saveat)
-    else
+    elseif saveat isa Number
         saveat = Vector{Float64}()
     end
     mkpath(dirname(filename))
@@ -260,7 +260,7 @@ function DropletSpreadingExperiment(
     θᵣ=0.0,
     N=nothing,
     hₛ_ratio=nothing,
-    hₛ,
+    hₛ=nothing,
     ndrops=1,
     hdrop_std=0.2,
     aspect_ratio=1,
@@ -281,12 +281,10 @@ function DropletSpreadingExperiment(
         δ = 2 * hₛ / hₛ_ratio
         N = ceil(1 + L / δ)
     end
-
+    δ = L / (N - 1)
     if isnothing(hₛ)
         hₛ = hₛ_ratio / 2 * δ
     end
-
-    δ = L / (N - 1)
 
     if isnothing(mass)
         mass = holdup * L^2 * aspect_ratio
@@ -330,12 +328,6 @@ function DropletSpreadingExperiment(
     R = R * (abs(mass) / vol)^(1 / 3)
     Rmoy = mean(R)
     # drops must be deposited within the numerical domain
-    d_posx = Uniform(xmin + Rmoy, xmax - Rmoy)
-    if two_dim
-        d_posy = Uniform(ymin + Rmoy, ymax - Rmoy)
-    else
-        d_posy = 0
-    end
     # withdraw mass if mass is negative (2*mass)
     if mass < 0
         hw = 2 * mass / (L^2 * aspect_ratio)
@@ -346,6 +338,12 @@ function DropletSpreadingExperiment(
     if ndrops == 1
         h = sum(drop.(R, 0, 0, θₛ, Ref(x), Ref(y))) .+ hi .+ hw
     else
+        d_posx = Uniform(xmin + Rmoy, xmax - Rmoy)
+        if two_dim
+            d_posy = Uniform(ymin + Rmoy, ymax - Rmoy)
+        else
+            d_posy = 0
+        end
         h =
             sum(drop.(R, rand(d_posx, ndrops), rand(d_posy, ndrops), θₛ, Ref(x), Ref(y))) .+
             hi .+ hw

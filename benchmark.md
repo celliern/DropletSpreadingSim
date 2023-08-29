@@ -21,3 +21,11 @@
 - explicit: 29.073363 seconds
 - IMEX (implicit): 382.864127 seconds
 - sundials (implicit): 73.060998 seconds
+
+## Total time, simulation
+
+- 1 thread: 8018 seconds
+- 4 threads: 2771 seconds
+- 8 threads: 2000.898205
+- 16 threads: 2050 seconds
+- GPU: 189 seconds

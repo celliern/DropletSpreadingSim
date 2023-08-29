@@ -8,7 +8,7 @@ global_logger(TerminalLogger(stderr))
 
 # %%
 function do_simulate(p; filename, viz=false)
-    @unpack h₀, σ, ρ, μ, τ, θτ, L, hₛ, hₛ_ratio, θₛ, dθₛ, hₛ, aspect_ratio, tmax,
+    @unpack reduce_factor, h₀, σ, ρ, μ, τ, θτ, L, hₛ, hₛ_ratio, θₛ, dθₛ, hₛ, aspect_ratio, tmax,
     mass, ndrops, hdrop_std, two_dim, reproject = p
     θₐ = deg2rad(θₛ + dθₛ)
     θᵣ = deg2rad(θₛ - dθₛ)
@@ -24,12 +24,12 @@ function do_simulate(p; filename, viz=false)
     if ~isnothing(filename)
         save_cb = build_save_callback(
             filename, prob, experiment;
-            saveat=get(p, :save_timestep, nothing), attrib=p
+            saveat=300:0.1:400, attrib=p
         )
         push!(callbacks, save_cb)
     end
     if reproject
-        reproject_cb = build_reprojection_callback(experiment; thresh=1e-3)
+        reproject_cb = build_reprojection_callback(experiment; thresh=nothing)
         push!(callbacks, reproject_cb)
     end
     if viz
@@ -57,21 +57,21 @@ end
 parameters = Dict(
     :hdrop_std => 0.2,
     :tmax => 400,
-    :hₛ_ratio => 1.0,
-    :hₛ => 5e-2,
+    :hₛ_ratio => 0.5,
+    :hₛ => 8e-2,
     :ndrops => 1,
     :h₀ => 0.0001,
     :μ => 0.001,
     :σ => 0.075,
     :θₛ => 30,
-    :dθₛ => [0, 1, 2, 3, 4, 5, 7, 8, 9],
-    :save_timestep => 0.5,
+    :dθₛ => [0, 5, 9],
     :θτ => 0.0,
     :mass => 220,
     :aspect_ratio => 3,
     :ρ => 1000.0,
     :τ => 8.0,
     :L => 24,
+    :reduce_factor => 0.2:0.1:1.2 |> collect,
     :two_dim => true,
     :reproject => true,
 )
@@ -79,8 +79,11 @@ parameters = dict_list(parameters)
 
 # %%
 for p ∈ parameters
-    out_dir = "data/outputs/2D_simple"
-    filename = savename(p, "nc", accesses=[:dθₛ])
+    out_dir = "data/outputs/2D_param_L/"
+
+    p[:L] *= p[:reduce_factor]
+    p[:mass] *= p[:reduce_factor]^3
+    filename = savename(p, "nc", accesses=[:dθₛ, :L])
     if ~isnothing(filename) && isfile(joinpath(out_dir, "$(basename(filename)).done"))
         @info "skipping" filename
         continue

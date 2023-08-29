@@ -1,0 +1,12 @@
+name: DropletSpreading
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - xarray
+  - numpy
+  - matplotlib
+  - seaborn
+  - ipykernel
+  - netcdf4
