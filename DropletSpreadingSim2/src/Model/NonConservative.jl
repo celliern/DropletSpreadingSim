@@ -20,25 +20,30 @@ function unpack_hu!(hux, huy, Uvec, n₁, n₂; executor=ThreadedEx())
 end
 
 function compute_skew_cap_coeffs!(
-    fxx, fxy, fyy, gx, gy, gv, fvx, fvy, Pid,
+    fx1, fx2, fx3, fy1, fy2, fy3, gx, gy, gv, fvx, fvy,
     h, vx, vy, κ, θₐ, θᵣ, hₛ,
     hux, huy, ux, uy, τx, τy,
     Δx, Δy, n₁, n₂, i, j
 )
-    @static if MODE == :full
-        fxx[i, j] = √κ * √h[i, j] * 1 / √(1 + h[i, j] / 4κ * (vx[i, j]^2 + vy[i, j]^2)) * (1 - 1 / (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2)) * h[i, j] / 4κ * (vx[i, j]^2))
-        fxy[i, j] = √κ * √h[i, j] * 1 / √(1 + h[i, j] * 1 / 4κ * (vx[i, j]^2 + vy[i, j]^2)) * (-1 / (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2)) * h[i, j] / 4κ * (vx[i, j] * vy[i, j]))
-        fyy[i, j] = √κ * √h[i, j] * 1 / √(1 + h[i, j] * 1 / 4κ * (vx[i, j]^2 + vy[i, j]^2)) * (1 - 1 / (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2)) * h[i, j] / 4κ * (vy[i, j]^2))
-        gx[i, j] = h[i, j] * vx[i, j] / 2 * (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2))^(-1)
-        gy[i, j] = h[i, j] * vy[i, j] / 2 * (1 + h[i, j] / 2κ * (vx[i, j]^2 + vy[i, j]^2))^(-1)
+#=    @static if MODE == :full
+        fx1[i, j] = 0.0
+        fx2[i, j] = 0.0
+        fx3[i, j] = 0.0
+        fy1[i, j] = 0.0
+        fy2[i, j] = 0.0
+        fy3[i, j] = 0.0
+        gx[i, j] = 0.0
+        gy[i, j] = 0.0
+        fxx[i, j] = fyy[i, j] = 0.0
+        fxy[i, j] = 0.0
     elseif MODE == :simple
         fxx[i, j] = fyy[i, j] = √κ * √h[i, j]
         fxy[i, j] = 0.0
         gx[i, j] = h[i, j] * vx[i, j] / 2
         gy[i, j] = h[i, j] * vy[i, j] / 2
     else
-        fxx[i, j] = fyy[i, j] = 0.0
-        fxy[i, j] = 0.0
+#       # fxx[i, j] = fyy[i, j] = 0.0
+#        fxy[i, j] = 0.0
         gx[i, j] = 0.0
         gy[i, j] = 0.0
     end
@@ -46,28 +51,28 @@ function compute_skew_cap_coeffs!(
     g = @SVector [gx[i, j], gy[i, j]]
     f = @SMatrix(
         [
-            fxx[i, j] fxy[i, j]
-            fxy[i, j] fyy[i, j]
+            fx1[i, j] fx2[i, j] fx3[i, j]
+            fy1[i, j] fy2[i, j] fy3[i, j]
         ]
     )
     u = @SVector [ux[i, j], uy[i, j]]
-    τ = @SVector [τx, τy]
+    τ = 0.0
 
     gv[i, j] = g' * v
     fv = f * v
 
-    dej = (hₛ / h[i, j])^4 - (hₛ / h[i, j])^3
-    ε = 1.e-3
-    θₛ = 0.5 * (θₐ + θᵣ) + 0.5 * (θᵣ - θₐ) * tanh((@div(hux, huy)) / ε)
+#    dej = (hₛ / h[i, j])^4 - (hₛ / h[i, j])^3
+#    ε = 1.e-3
+    θₛ = 0.0
 
     fvx[i, j] = fv[1]
-    fvy[i, j] = fv[2]
-    Pid[i, j] = (6 / hₛ) * κ * (1 - cos(θₛ)) * dej
+    fvy[i, j] = fv[2]=#
+    
     return
 end
 
 function compute_skew_cap_coeffs!(
-    fxx, fxy, fyy, gx, gy, gv, fvx, fvy, Pid,
+    fx1, fx2, fx3, fy1, fy2, fy3, gx, gy, gv, fvx, fvy,
     h, vx, vy, κ, θₐ, θᵣ, hₛ,
     hux, huy, ux, uy, τx, τy,
     Δx, Δy, n₁, n₂; executor=ThreadedEx()
@@ -75,7 +80,7 @@ function compute_skew_cap_coeffs!(
     @floop executor for I in CartesianIndices(h)
         i, j = Tuple(I)
         compute_skew_cap_coeffs!(
-            fxx, fxy, fyy, gx, gy, gv, fvx, fvy, Pid,
+            fx1, fx2, fx3, fy1, fy2, fy3, gx, gy, gv, fvx, fvy,
             h, vx, vy, κ, θₐ, θᵣ, hₛ,
             hux, huy, ux, uy, τx, τy,
             Δx, Δy, n₁, n₂, i, j
@@ -84,55 +89,55 @@ function compute_skew_cap_coeffs!(
 end
 
 function skew_cap_kernel!(
-    dU, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy,
-    gx, gy, fxx, fxy, fyy, gv, fvx, fvy, Pid,
+    dU, h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3,
+    gx, gy, fx1, fx2, fx3, fy1, fy2, fy3, gv, fvx, fvy,
     Re, β, τx, τy,
     Δx, Δy, n₁, n₂, i, j
 )
 
-    g = @SVector [gx[i, j], gy[i, j]]
-    f = @SMatrix [fxx[i, j] fxy[i, j]
-        fxy[i, j] fyy[i, j]]
-    ϕ = @SMatrix [ϕxx[i, j] ϕxy[i, j]
-        ϕxy[i, j] ϕyy[i, j]]
+#=    g = @SVector [gx[i, j], gy[i, j]]
+    f = @SMatrix [fx1[i, j] fx2[i, j] fx3[i, j]
+        fy1[i, j] fy2[i, j] fy2[i, j]]
+    ϕ = @SMatrix [ϕx1[i, j] ϕx2[i, j] ϕx3[i, j]
+        ϕy1[i, j] ϕy2[i, j]  ϕy3[i, j]]
     u = @SVector [ux[i, j], uy[i, j]]
     v = @SVector [vx[i, j], vy[i, j]]
     τ = @SVector [τx, τy]
 
-    dhu = -(@∇(gv)) + (@divh∇(fvx, fvy)) + 3 / Re * (τ / 2 - u / h[i, j]) + h[i, j] * (@∇(Pid))
-    dhv = @SVector [vx[i, j], vy[i, j]]
-    dhv = -g * (@div(ux, uy)) - f * (@divh∇(ux, uy))
-    dhϕ = (
-        2h[i, j] * (@div(ux, uy)) * ϕ - (@∇(ux, uy)) * h[i, j] * ϕ - h[i, j] * ϕ * (@∇(ux, uy))'
-        -
-        β / Re / h[i, j] * (
-            ϕ - (u ⊗ u) / (3h[i, j]^2) + 1 / (12h[i, j]^2) * ((u ⊗ u) - h[i, j]^2 / 4 * (τ ⊗ τ))
-        )
-    )
+    dhu = @SVector [0, 0]
+    dhv = @SVector [0, 0]
+#    dhv = 0.0
+    dhϕ =  [
+        0 0 0
+        0 0 0 
+    ]=#
 
     dU[gridded_to_flat(1, i, j; nᵤ, n₁, n₂)] = 0.0
-    dU[gridded_to_flat(2, i, j; nᵤ, n₁, n₂)] = dhu[1]
-    dU[gridded_to_flat(3, i, j; nᵤ, n₁, n₂)] = dhu[2]
-    dU[gridded_to_flat(4, i, j; nᵤ, n₁, n₂)] = dhv[1]
-    dU[gridded_to_flat(5, i, j; nᵤ, n₁, n₂)] = dhv[2]
-    dU[gridded_to_flat(6, i, j; nᵤ, n₁, n₂)] = dhϕ[1, 1]
-    dU[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] = dhϕ[1, 2]
-    dU[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] = dhϕ[2, 2]
+    dU[gridded_to_flat(2, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(3, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(4, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(5, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(6, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(9, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(10, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(11, i, j; nᵤ, n₁, n₂)] = 0.0
 
     return
 end
 
 function skew_cap_kernel!(
-    dU, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy,
-    gx, gy, fxx, fxy, fyy, gv, fvx, fvy, Pid,
+    dU, h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3,
+    gx, gy, fx1, fx2, fx3, fy1, fy2, fy3, gv, fvx, fvy,
     Re, β, τx, τy,
     Δx, Δy, n₁, n₂; executor=ThreadedEx(),
 )
     @floop executor for I in CartesianIndices(h)
         i, j = Tuple(I)
         skew_cap_kernel!(
-            dU, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy,
-            gx, gy, fxx, fxy, fyy, gv, fvx, fvy, Pid,
+            dU, h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3,
+            gx, gy, fx1, fx2, fx3, fy1, fy2, fy3, gv, fvx, fvy,
             Re, β, τx, τy,
             Δx, Δy, n₁, n₂, i, j
         )
@@ -142,8 +147,8 @@ end
 function update_cap!(dUvec, Uvec, p, t; gridinfo, caches, executor=:auto)
     typed_caches = caches[typeof(Uvec)]
     cache_cap = typed_caches.cap
-    @unpack h, hux, huy, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = cache_cap
-    @unpack fxx, fxy, fyy, gv, fvx, fvy, gx, gy, Pid = cache_cap
+    @unpack h, hux, huy, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3 = cache_cap
+    @unpack fx1, fx2, fx3, fy1, fy2, fy3, gv, fvx, fvy, gx, gy = cache_cap
     @unpack Δx, Δy, n₁, n₂ = gridinfo
     @unpack κ, Re, β, τx, τy, θₐ, θᵣ, hₛ = p
 
@@ -151,19 +156,19 @@ function update_cap!(dUvec, Uvec, p, t; gridinfo, caches, executor=:auto)
         executor = Uvec isa CuArray ? CUDAEx() : ThreadedEx()
     end
 
-    unpack_Uvec!(h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, Uvec, n₁, n₂; executor)
+    unpack_Uvec!(h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3, Uvec, n₁, n₂; executor)
     unpack_hu!(hux, huy, Uvec, n₁, n₂; executor)
 
     compute_skew_cap_coeffs!(
-        fxx, fxy, fyy, gx, gy, gv, fvx, fvy, Pid, h,
+        fx1, fx2, fx3, fy1, fy2, fy3, gx, gy, gv, fvx, fvy, h,
         vx, vy, κ, θₐ, θᵣ, hₛ, hux, huy, ux, uy, τx, τy,
         Δx, Δy, n₁, n₂;
         executor
     )
 
     skew_cap_kernel!(
-        dUvec, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy,
-        gx, gy, fxx, fxy, fyy, gv, fvx, fvy, Pid,
+        dUvec, h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3,
+        gx, gy, fx1, fx2, fx3, fy1, fy2, fy3, gv, fvx, fvy, 
         Re, β, τx, τy,
         Δx, Δy, n₁, n₂;
         executor

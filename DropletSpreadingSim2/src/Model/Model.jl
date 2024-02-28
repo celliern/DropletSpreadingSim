@@ -3,7 +3,7 @@ export update_cap!, update_hyp!, compute_v!, compute_ϕ!, build_cache, build_cac
 using SparseArrays, StaticArrays, LinearAlgebra, UnPack, Reexport, FLoops
 using UnPack
 
-const nᵤ = 8
+const nᵤ = 11
 const MODE = :full
 # const MODE = :simple
 # const MODE = nothing
@@ -45,20 +45,23 @@ function compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂; executor=ThreadedEx())
     end
 end
 
-function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy, i, j)
+function compute_ϕ!(h, ux, uy, ϕx1, ϕx2, ϕx3, ϕy1, ϕy2, ϕy3, τx, τy, i, j)
     u = @SVector [ux[i, j], uy[i, j]]
     τ = @SVector [τx, τy]
-    ϕ = (u ⊗ u) / 3h[i, j]^2 - 1 / 12h[i, j]^2 * ((u ⊗ u) - h[i, j]^2 * (τ ⊗ τ) / 4)
+   # ϕ = (u ⊗ u) / 3h[i, j]^2 - 1 / 12h[i, j]^2 * ((u ⊗ u) - h[i, j]^2 * (τ ⊗ τ) / 4)
 
-    ϕxx[i, j] = ϕ[1, 1]
-    ϕxy[i, j] = ϕ[1, 2]
-    ϕyy[i, j] = ϕ[2, 2]
+    ϕx1[i, j] = 0.0
+    ϕx2[i, j] = 0.0
+    ϕx3[i, j] = 0.0
+    ϕy1[i, j] = 0.0
+    ϕy2[i, j] = 0.0
+    ϕy3[i, j] = 0.0
     return
 end
 
-function compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy; executor=ThreadedEx())
+function compute_ϕ!(h, ux, uy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3, τx, τy; executor=ThreadedEx())
     @floop executor for I in CartesianIndices(h)
-        compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy, Tuple(I)...)
+        compute_ϕ!(h, ux, uy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3, τx, τy, Tuple(I)...)
     end
 end
 
@@ -78,10 +81,10 @@ end
 
 function build_cache_cap(T, n₁, n₂)
     x = T()
-    @preallocate h, hux, huy, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy = similar(x, (n₁, n₂))
-    @preallocate fxx, fxy, fyy, gv, fvx, fvy, gx, gy, Pid = similar(x, (n₁, n₂))
+    @preallocate h, hux, huy, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3 = similar(x, (n₁, n₂))
+    @preallocate fx1, fx2, fx3, fy1, fy2, fy3, gv, fvx, fvy, gx, gy = similar(x, (n₁, n₂))
 
-    return @ntuple h hux huy ux uy vx vy ϕxx ϕxy ϕyy fxx fxy fyy gv fvx fvy gx gy Pid
+    return @ntuple h hux huy ux uy vx vy ϕx1 ϕx2 ϕx1 ϕy1 ϕy2 ϕy3 fx1, fx2, fx3, fy1, fy2, fy3 gv fvx fvy gx gy 
 end
 
 build_cache(T, n₁, n₂) = (cap=build_cache_cap(T, n₁, n₂), hyp=build_cache_hyp(T, n₁, n₂))
