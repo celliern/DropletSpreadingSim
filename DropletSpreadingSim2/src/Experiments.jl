@@ -226,15 +226,18 @@ function init_model(x, y, h, p)
     uy = @. h * τy / 2
     vx = zeros(n₁, n₂)
     vy = zeros(n₁, n₂)
-    ϕxx = zeros(n₁, n₂)
-    ϕxy = zeros(n₁, n₂)
-    ϕyy = zeros(n₁, n₂)
+    ϕx1 = zeros(n₁, n₂)
+    ϕx2 = zeros(n₁, n₂)
+    ϕx3 = zeros(n₁, n₂)
+    ϕy1 = zeros(n₁, n₂)
+    ϕy2 = zeros(n₁, n₂)
+    ϕy3 = zeros(n₁, n₂)
 
     compute_v!(vx, vy, h, κ, Δx, Δy, n₁, n₂)
-    compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy)
+#    compute_ϕ!(h, ux, uy, ϕxx, ϕxy, ϕyy, τx, τy)
 
     U₀ = zeros(nᵤ * n₁ * n₂)
-    pack_Uvec!(U₀, h, ux, uy, vx, vy, ϕxx, ϕxy, ϕyy, n₁, n₂)
+    pack_Uvec!(U₀, h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx1, ϕy1, ϕy2, ϕy3, n₁, n₂)
 
     return (
         U₀=U₀,
