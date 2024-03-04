@@ -57,10 +57,10 @@ function pack_Uvec!(Uvec, h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx3, ϕy1, ϕy2, ϕy3,
     Uvec[gridded_to_flat(4, i, j; nᵤ, n₁, n₂)] = h[i, j] * vx[i, j]
     Uvec[gridded_to_flat(5, i, j; nᵤ, n₁, n₂)] = h[i, j] * vy[i, j]
     Uvec[gridded_to_flat(6, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕx1[i, j]
-    Uvec[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕx2[i, j]
-    Uvec[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕx3[i, j]
-    Uvec[gridded_to_flat(9, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕy1[i, j]
-    Uvec[gridded_to_flat(10, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕy2[i, j]
+    Uvec[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕy1[i, j]
+    Uvec[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕx2[i, j]
+    Uvec[gridded_to_flat(9, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕy2[i, j]
+    Uvec[gridded_to_flat(10, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕx3[i, j]
     Uvec[gridded_to_flat(11, i, j; nᵤ, n₁, n₂)] = h[i, j] * ϕy3[i, j]
     return
 end
@@ -80,10 +80,10 @@ function unpack_Uvec!(h, ux, uy, vx, vy, ϕx1, ϕx2, ϕx3, ϕy1, ϕy2, ϕy3, Uve
     vx[i, j] = Uvec[gridded_to_flat(4, i, j; nᵤ, n₁, n₂)] / h[i, j]
     vy[i, j] = Uvec[gridded_to_flat(5, i, j; nᵤ, n₁, n₂)] / h[i, j]
     ϕx1[i, j] = Uvec[gridded_to_flat(6, i, j; nᵤ, n₁, n₂)] / h[i, j]
-    ϕx2[i, j] = Uvec[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] / h[i, j]
-    ϕx3[i, j] = Uvec[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] / h[i, j]
-    ϕy1[i, j] = Uvec[gridded_to_flat(9, i, j; nᵤ, n₁, n₂)] / h[i, j]
-    ϕy2[i, j] = Uvec[gridded_to_flat(10, i, j; nᵤ, n₁, n₂)] / h[i, j]
+    ϕy1[i, j] = Uvec[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] / h[i, j]
+    ϕx2[i, j] = Uvec[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] / h[i, j]
+    ϕy2[i, j] = Uvec[gridded_to_flat(9, i, j; nᵤ, n₁, n₂)] / h[i, j]
+    ϕx3[i, j] = Uvec[gridded_to_flat(10, i, j; nᵤ, n₁, n₂)] / h[i, j]
     ϕy3[i, j] = Uvec[gridded_to_flat(11, i, j; nᵤ, n₁, n₂)] / h[i, j]
     return
 end

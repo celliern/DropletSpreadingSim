@@ -47,24 +47,36 @@ end
 end
 
 function compute_caF_x!(c, a, F, U, i, j)
-    c[i, j] = U[i, j, 2] / U[i, j, 1]
-    a[i, j] = √(3U[i, j, 1]) * √(max(U[i, j, 6], 0))
+    c[i, j] = U[i, j, 2] / U[i, j, 1] #c=h*ux/h=ux
+    a[i, j] = √(3U[i, j, 1]) * √(max(U[i, j, 6], 0)) #a=sqroot(3h^2 phix)
     for k in 1:nᵤ
         F[i, j, k] = c[i, j] * U[i, j, k]
     end
-    F[i, j, 2] += U[i, j, 1]^2 * U[i, j, 6]
-    F[i, j, 3] += U[i, j, 1]^2 * U[i, j, 7]
+    F[i, j, 2] += U[i, j, 1] * U[i, j, 6]^2/3 #each time F(i,j,2) for h*ux^2 is updated by adding h*(h*ϕx1)^2/3
+    F[i, j, 3] += U[i, j, 1] * U[i, j, 7] * U[i, j, 6]/3 #each time F(i,j,3) for h*ux*uy is updated by adding h*(h*ϕx1)*h*ϕy1/3
+    F[i, j, 6] += F[i, j, 6] #each time F(i,j,6) for h*ux*ϕx1 is updated by adding h*ux*ϕx1
+    F[i, j, 7] += U[i, j, 3] * U[i, j, 6]/U[i, j, 1]  #each time F(i,j,7) for h*ux*ϕy1 is updated by adding h*uy*h*ϕx1/h
+    F[i, j, 8] += F[i, j, 8] #each time F(i,j,8) for h*ux*ϕx1 is updated by adding h*ux*ϕx1
+    F[i, j, 9] += U[i, j, 3] * U[i, j, 8]/U[i, j, 1]  #each time F(i,j,9) for h*ux*ϕy1 is updated by adding h*uy*h*ϕx1/h
+    F[i, j, 10] += F[i, j, 10] #each time F(i,j,10) for h*ux*ϕx3 is updated by adding h*ux*ϕx3
+    F[i, j, 11] += U[i, j, 3] * U[i, j, 10]/U[i, j, 1]  #each time F(i,j,11) for h*ux*ϕy3 is updated by adding h*uy*h*ϕx3/h
     return
 end
 
 function compute_caF_y!(c, a, F, U, i, j)
-    c[i, j] = U[i, j, 3] / U[i, j, 1]
-    a[i, j] = √(3U[i, j, 1]) * √(max(U[i, j, 8], 0))
+    c[i, j] = U[i, j, 3] / U[i, j, 1] #c=h*uy/h=uy
+    a[i, j] = √(3U[i, j, 1]) * √(max(U[i, j, 7], 0))#a=sqroot(3h^2 phiy)
     for k in 1:nᵤ
         F[i, j, k] = c[i, j] * U[i, j, k]
     end
-    F[i, j, 2] += U[i, j, 1]^2 * U[i, j, 7]
-    F[i, j, 3] += U[i, j, 1]^2 * U[i, j, 8]
+    F[i, j, 2] += U[i, j, 1]* U[i, j, 7] * U[i, j, 6]/3 #each time F(i,j,2) for h*ux*uy is updated by adding h^2*h*ϕx1*ϕy1/3
+    F[i, j, 3] += U[i, j, 1] * U[i, j, 7]^2/3 #each time F(i,j,3) for h*ux is updated by adding h*(h*ϕy1)^2/3
+    F[i, j, 6] += U[i, j, 2] * U[i, j, 7]/U[i, j, 1]  #each time F(i,j,6) for h*uy*ϕx1 is updated by adding h*ux*h*ϕy1/h
+    F[i, j, 7] += F[i, j, 7] #each time F(i,j,7) for h*uy*ϕy1 is updated by adding h*uy*ϕy1
+    F[i, j, 8] += U[i, j, 2] * U[i, j, 9]/U[i, j, 1]  #each time F(i,j,8) for h*uy*ϕx2 is updated by adding h*ux*h*ϕy2/h
+    F[i, j, 9] += F[i, j, 9] #each time F(i,j,9) for h*uy*ϕy2 is updated by adding h*uy*ϕy2
+    F[i, j, 10] += U[i, j, 2] * U[i, j, 11]/U[i, j, 1]  #each time F(i,j,10) for h*uy*ϕx3 is updated by adding h*ux*h*ϕy3/h
+    F[i, j, 11] += F[i, j, 11] #each time F(i,j,11) for h*uy*ϕy3 is updated by adding h*uy*ϕy3
     return
 end
 
