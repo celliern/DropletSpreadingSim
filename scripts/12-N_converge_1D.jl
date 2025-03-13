@@ -1,7 +1,6 @@
 # %%
-using DropletSpreadingSim2
 
-using DifferentialEquations, Sundials, Logging, DrWatson
+using DifferentialEquations, Logging, DrWatson
 using TerminalLoggers: TerminalLogger
 using GLMakie
 global_logger(TerminalLogger(stderr))
@@ -13,12 +12,10 @@ function do_simulate(p; filename, viz=false)
     θₐ = deg2rad(θₛ + dθₛ)
     θᵣ = deg2rad(θₛ - dθₛ)
 
-    # %%
     experiment = DropletSpreadingExperiment(; h₀, σ, ρ, μ, τ, θτ, L, hₛ_ratio, hₛ, θₐ, θᵣ,
         aspect_ratio, mass, ndrops, hdrop_std, two_dim)
 
-    # %%
-    prob = ODEProblem(experiment, (0.0, p[:tmax]), on=:gpu)
+    prob = ODEProblem(experiment, (0.0, p[:tmax]), on=:cpu)
     # cfl_limiter = build_cfl_limiter(experiment; safety_factor=p[:cfl_safety_factor])
     callbacks = Any[]
     if ~isnothing(filename)
@@ -73,7 +70,7 @@ parameters = Dict(
     :mass => 220,
     :aspect_ratio => 3,
     :ρ => 1000.0,
-    :τ => 8.0,
+    :τ => 0.0,
     :L => 24,
     :two_dim => false,
     :reproject => true,
@@ -98,3 +95,5 @@ for p ∈ parameters
         touch(joinpath(out_dir, "$(basename(filename)).done"))
     end
 end
+# %%
+

@@ -18,12 +18,12 @@ julia> @ntuple ω χ ζ
 ```
 """
 macro ntuple(vars...)
-   args = Any[]
-   for i in 1:length(vars)
-       push!(args, Expr(:(=), esc(vars[i]), :($(esc(vars[i])))))
-   end
-   expr = Expr(:tuple, args...)
-   return expr
+    args = Any[]
+    for i in 1:length(vars)
+        push!(args, Expr(:(=), esc(vars[i]), :($(esc(vars[i])))))
+    end
+    expr = Expr(:tuple, args...)
+    return expr
 end
 
 
@@ -32,10 +32,10 @@ end
 Convert a dictionary (with `Symbol` or `String` as key type) to
 a `NamedTuple`.
 """
-function dict2ntuple(dict::Dict{String,T}) where T
+function dict2ntuple(dict::Dict{String,T}) where {T}
     NamedTuple{Tuple(Symbol.(keys(dict)))}(values(dict))
 end
-function dict2ntuple(dict::Dict{Symbol,T}) where T
+function dict2ntuple(dict::Dict{Symbol,T}) where {T}
     NamedTuple{Tuple(keys(dict))}(values(dict))
 end
 
@@ -53,12 +53,12 @@ macro preallocate(expr)
     expr.head != :(=) && error("Expression needs to be of form `a, b = c`")
     items, template = expr.args
     items = isa(items, Symbol) ? [items] : items.args
-    kd = [:( $key = $template) for key in items]
+    kd = [:($key = $template) for key in items]
     kd_namedtuple = :(NamedTuple{Tuple($items)}(Tuple([$template for _ in $items])))
     kdblock = Expr(:block, kd...)
     expr = quote
         $kdblock
-    $kd_namedtuple
+        $kd_namedtuple
     end
     return esc(expr)
 end
@@ -86,17 +86,12 @@ macro bc(var, expr)
             @capture(x, $var[i_, j_]) || return x
             i, j = bound_ij(i, j)
             return :($var[$i, $j])
-            end
+        end
         ex = postwalk(ex) do x
             @capture(x, $var[i_, j_, k_]) || return x
             i, j = bound_ij(i, j)
-        return :($var[$i, $j, $k])
-            end
-        ex = postwalk(ex) do x
-            @capture(x, $var(i_, j_)) || return x
-            i, j = bound_ij(i, j)
-            return :($var($i, $j))
-    end
+            return :($var[$i, $j, $k])
+        end
         ex
     end
 

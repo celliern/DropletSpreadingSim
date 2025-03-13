@@ -221,9 +221,15 @@ function init_model(x, y, h, p)
     gridinfo = (x=x, y=y, Δx=Δx, Δy=Δy, n₁=n₁, n₂=n₂)
 
     @unpack κ, τx, τy = p
-
-    ux = @. h * τx / 2
-    uy = @. h * τy / 2
+    if τx > 0.0
+        ux = @. h * τx / 2
+    else
+        ux = 1.0
+    if τy > 0.0
+        uy = @. h * τy / 2
+    else
+        uy = 1.0
+    end
     vx = zeros(n₁, n₂)
     vy = zeros(n₁, n₂)
     ϕxx = zeros(n₁, n₂)

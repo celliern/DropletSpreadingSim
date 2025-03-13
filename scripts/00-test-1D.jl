@@ -1,7 +1,7 @@
 # %%
 using DropletSpreadingSim2
 
-using DifferentialEquations, Sundials, Logging, DrWatson
+using DifferentialEquations, Logging, DrWatson
 using WGLMakie
 using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger())
@@ -40,7 +40,7 @@ experiment = DropletSpreadingExperiment(;
 )
 
 # %%
-prob = ODEProblem(experiment, (0.0, p[:tmax]), on=:gpu)
+prob = ODEProblem(experiment, (0.0, p[:tmax]), on=:cpu)
 
 # %%
 # Vizualisation
@@ -81,6 +81,6 @@ save_cb = build_save_callback(
     progress_steps=1,
     save_everystep=false,
     saveat=get(p, :keep_timestep, []),
-    adaptive=false,
-    dt=0.001,
 )
+# %%
+

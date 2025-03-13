@@ -102,22 +102,15 @@ function skew_cap_kernel!(
     dhu = -(@∇(gv)) + (@divh∇(fvx, fvy)) + 3 / Re * (τ / 2 - u / h[i, j]) + h[i, j] * (@∇(Pid))
     dhv = @SVector [vx[i, j], vy[i, j]]
     dhv = -g * (@div(ux, uy)) - f * (@divh∇(ux, uy))
-    dhϕ = (
-        2h[i, j] * (@div(ux, uy)) * ϕ - (@∇(ux, uy)) * h[i, j] * ϕ - h[i, j] * ϕ * (@∇(ux, uy))'
-        -
-        β / Re / h[i, j] * (
-            ϕ - (u ⊗ u) / (3h[i, j]^2) + 1 / (12h[i, j]^2) * ((u ⊗ u) - h[i, j]^2 / 4 * (τ ⊗ τ))
-        )
-    )
 
     dU[gridded_to_flat(1, i, j; nᵤ, n₁, n₂)] = 0.0
     dU[gridded_to_flat(2, i, j; nᵤ, n₁, n₂)] = dhu[1]
     dU[gridded_to_flat(3, i, j; nᵤ, n₁, n₂)] = dhu[2]
     dU[gridded_to_flat(4, i, j; nᵤ, n₁, n₂)] = dhv[1]
     dU[gridded_to_flat(5, i, j; nᵤ, n₁, n₂)] = dhv[2]
-    dU[gridded_to_flat(6, i, j; nᵤ, n₁, n₂)] = dhϕ[1, 1]
-    dU[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] = dhϕ[1, 2]
-    dU[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] = dhϕ[2, 2]
+    dU[gridded_to_flat(6, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(7, i, j; nᵤ, n₁, n₂)] = 0.0
+    dU[gridded_to_flat(8, i, j; nᵤ, n₁, n₂)] = 0.0
 
     return
 end
